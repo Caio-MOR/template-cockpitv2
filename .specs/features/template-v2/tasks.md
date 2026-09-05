@@ -191,10 +191,10 @@ T1 -> T2 -> T3 -> T5 -> T6 -> T7 -> T8 -> T4
 
 **Done when**:
 
-- [ ] `--dry-run` changes no file and lists only allowlisted v2-build paths; apply mode changes only those paths and initialized spec state.
-- [ ] A temporary generated copy, after documented initialization and placeholder resolution, passes doctor, policy, operational audit at 10.0, router lint, external verdict, and non-template gold audit at 10.0.
-- [ ] Validation rejects remaining v2-build records and unresolved placeholders, but does not reject later legitimate `CODEOWNERS` or gitleaks-exception files.
-- [ ] The initialized project state contains no stale inherited completion claim; v2 build evidence is removed only by the explicit allowlisted initialization recipe.
+- [x] `--dry-run` changes no file and lists only allowlisted v2-build paths; apply mode changes only those paths and initialized spec state.
+- [x] A temporary generated copy, after documented initialization and placeholder resolution, passes doctor, policy, operational audit at 10.0, router lint, external verdict, and non-template gold audit at 10.0.
+- [x] Validation rejects remaining v2-build records and unresolved placeholders, but does not reject later legitimate `CODEOWNERS` or gitleaks-exception files.
+- [x] The initialized project state contains no stale inherited completion claim; v2 build evidence is removed only by the explicit allowlisted initialization recipe.
 
 **Tests**: temporary-copy integration
 **Gate**: `python3 tools/validate_new_instance.py . && python3 tools/gate_veredito.py`

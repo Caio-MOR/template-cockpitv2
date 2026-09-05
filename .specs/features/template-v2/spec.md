@@ -108,7 +108,7 @@
 | TV2-06 | P1: Verifiable delivery | Design | Pending |
 | TV2-07 | P2: Portable agent and eval conventions | Execute | Verified |
 | TV2-08 | P2: Portable agent and eval conventions | Execute | Verified |
-| TV2-09 | P1: Clean generated-instance bootstrap | Design | Pending |
+| TV2-09 | P1: Clean generated-instance bootstrap | Execute | Verified |
 
 **Coverage:** 9 total, 9 mapped to tasks, 0 unmapped.
 
