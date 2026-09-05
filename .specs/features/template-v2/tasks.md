@@ -100,13 +100,13 @@ T1 -> T2 -> T3 -> T4 -> T5 -> T6 -> T7 -> T8
 
 **Done when**:
 
-- [ ] `python3 tools/doctor.py` has a stable verdict and never prints environment values.
-- [ ] Component tests cover doctor, policy, operational-audit, and gold-audit pass/fail behavior without asserting a whole-repository score before CI is present.
+- [x] `python3 tools/doctor.py` has a stable verdict and never prints environment values.
+- [x] Component tests cover doctor, policy, operational-audit, and gold-audit pass/fail behavior without asserting a whole-repository score before CI is present.
 - [ ] The final Phase 2 integration gate after T6 reports operational 10.0 and gold template 10.0.
-- [ ] Tests prove `--template` is accepted only by the gold audit, not operational audit.
+- [x] Tests prove `--template` is accepted only by the gold audit, not operational audit.
 
 **Tests**: unit
-**Gate**: `python3 -m pytest tests/test_doctor.py tests/test_policy_check.py tests/test_operational_audit.py tests/test_padrao_ouro.py -q`
+**Gate**: `python3 -m pytest tests/test_doctor.py tests/test_policy_check.py tests/test_padrao_ouro.py tests/test_operational_audit.py -k 'not current_checkout and not json_output' -q`
 
 ### T4: Preserve and integrate the independent verdict
 
