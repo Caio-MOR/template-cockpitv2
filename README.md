@@ -8,24 +8,29 @@ Cockpit de automações no framework WAT (Workflows, Agents, Tools): SOPs em Mar
 
 Python is fixed at 3.12.13 (`.python-version`). A root `.venv` is each machine's canonical interpreter; workflow wrappers find it by relative path.
 
-**Windows** (sem `uv`; o launcher `py` resolve):
+**Windows** (install `uv` first):
 
 ```
-py install 3.12.13
-py -V:3.12.13 -m venv .venv
-.venv\Scripts\python.exe -m pip install --require-hashes -r requirements.txt
+uv python install 3.12.13
+uv venv --managed-python --python 3.12.13 .venv
+uv pip install --python .venv\Scripts\python.exe --require-hashes -r requirements.txt
 ```
 
-**Mac/Linux** (com `uv`):
+**Mac/Linux** (install `uv` first):
 
 ```
+uv python install 3.12.13
 uv venv .venv --python 3.12.13
 uv pip install --require-hashes -r requirements.txt
 ```
 
-The root `.venv` is the only interpreter for repository commands. Set `PY` to
-`.venv\Scripts\python.exe` on Windows or `.venv/bin/python` on Mac/Linux; do not
-substitute a system Python, `ruff`, `pip-audit`, or `bandit` executable.
+The root `.venv` is the only interpreter for repository commands. In the command list
+below, `PY` and `GITLEAKS` are metavariables, not literal shell commands. On Mac/Linux,
+run `PY=.venv/bin/python` and then `"$PY" tools/gate_veredito.py`. In PowerShell, run
+`$PY = '.venv\Scripts\python.exe'` and then `& $PY tools/gate_veredito.py`. Bind
+`GITLEAKS` the same way and invoke it as `"$GITLEAKS" detect ...` on POSIX or
+`& $GITLEAKS detect ...` in PowerShell. Do not substitute a system Python, `ruff`,
+`pip-audit`, or `bandit` executable.
 
 ## Verificar localmente
 
@@ -79,7 +84,7 @@ Depois, no clone novo, é o **agente** quem executa este checklist ao abrir a pr
 1. Ask for the project name, short description, default language, GitHub owner, and the template owner. Replace only the declared instance placeholders in `AGENTS.md` (`{{NOME_DO_REPO}}`, `{{IDIOMA}}`), `README.md` (`{{NOME_DO_REPO}}`, `{{DESCRICAO}}`, `{{DONO}}`), and `.github/CODEOWNERS` (`{{GITHUB_OWNER}}`). Do not perform a repository-wide placeholder replacement: code and tests may contain deliberate template-like strings. <!-- padrao-ouro:ignorar -->
 2. Criar o `.venv` conforme a seção "Como rodar" acima.
 3. If using Codex subagents, copy `.codex/config.example.toml` to `.codex/config.toml` (local, fora do git); otherwise leave the example untouched.
-4. Executar `python tools/initialize_template.py --dry-run .`, revisar a lista, e então executar `python tools/initialize_template.py .`.
+4. With the canonical `PY` binding above, execute `PY tools/initialize_template.py --dry-run .`, review the list, then execute `PY tools/initialize_template.py .`.
 5. Rodar os cinco gates e o auditor do padrão ouro **sem** `--template` (a instância real não tem mais placeholder para desculpar).
 6. Instalar as skills de processo do marketplace `caio-mor` (já registrado em `.claude/settings.json`, mas registro não instala sozinho — cada plugin precisa de comando explícito):
    ```
