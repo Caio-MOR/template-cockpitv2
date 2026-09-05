@@ -63,6 +63,17 @@ def test_marker_sintetico_e_apenas_de_linha(tmp_path: Path):
     assert any("tests/test_fixture.py" in finding for finding in findings)
 
 
+def test_marker_sintetico_fora_de_fixture_canonica_nao_isenta(tmp_path: Path):
+    repo = _repo(tmp_path)
+    synthetic = "AKIA" + "C" * 16
+    (repo / "app.py").write_text(
+        f"credential={synthetic}  # SINTETICO\n", encoding="utf-8"
+    )
+    _git("add", "-f", "app.py", cwd=repo)
+    findings = policy_check.check(repo)
+    assert any("app.py" in finding and "aws-access-key" in finding for finding in findings)
+
+
 def test_gitignore_incompleto_reprova(tmp_path: Path):
     (tmp_path / ".gitignore").write_text(".env\n", encoding="utf-8")
     assert any("regra obrigatória ausente" in item for item in policy_check._check_gitignore(tmp_path))

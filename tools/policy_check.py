@@ -82,16 +82,27 @@ def _is_forbidden_env_name(path: Path) -> bool:
     return name != ENV_EXAMPLE and (name == ".env" or name.startswith(".env."))
 
 
-def _is_synthetic_line(line: str) -> bool:
-    """Allow only explicit, line-scoped fixtures used to test secret detectors."""
-    return "gitleaks:allow" in line or "SINTETICO" in line
+def _is_canonical_synthetic_fixture(relative: str) -> bool:
+    path = Path(relative)
+    if path.parts[:1] != ("tests",):
+        return False
+    return (
+        len(path.parts) == 2 and path.name.startswith("test_") and path.suffix == ".py"
+    ) or path.parts[1:2] == ("fixtures",)
 
 
-def _find_secret(text: str) -> str | None:
+def _is_synthetic_line(relative: str, line: str) -> bool:
+    """Allow marked detector fixtures only from canonical test locations."""
+    return _is_canonical_synthetic_fixture(relative) and (
+        "gitleaks:allow" in line or "SINTETICO" in line
+    )
+
+
+def _find_secret(relative: str, text: str) -> str | None:
     # Keep exemptions line-scoped: a marker cannot hide a real secret elsewhere in
     # the same file.  Test fixtures must mark the exact synthetic line.
     for line in text.splitlines():
-        if _is_synthetic_line(line):
+        if _is_synthetic_line(relative, line):
             continue
         for name, pattern in PATTERNS:
             if pattern.search(line):
@@ -142,7 +153,7 @@ def check(root: str | Path) -> list[str]:
             findings.append(f"{relative}: arquivo binário não pode ser inspecionado")
             continue
         text = raw.decode("utf-8", errors="replace")
-        pattern = _find_secret(text)
+        pattern = _find_secret(relative, text)
         if pattern:
             findings.append(f"{relative}: padrão de segredo detectado ({pattern})")
     return findings

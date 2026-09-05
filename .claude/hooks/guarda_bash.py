@@ -15,8 +15,10 @@ conseguiu validar o comando não deve liberar uma operação potencialmente dest
 """
 import json
 import re
+import shlex
 import subprocess
 import sys
+from pathlib import Path
 
 TETO_SUBPROC = 10
 
@@ -83,11 +85,51 @@ def _push_destino_main_ou_master(cmd: str) -> bool:
     return False
 
 
+def _diretorios_de_commit(cmd: str, cwd: str) -> list:
+    """Return the effective cwd of each parsed ``git ... commit`` invocation."""
+    directories: list = []
+    for trecho in re.split(r"&&|\|\||[;\n]", cmd):
+        try:
+            tokens = shlex.split(trecho)
+        except ValueError:
+            if _GIT_SUBCOMMAND.search(trecho) and "commit" in trecho:
+                directories.append(None)
+            continue
+        try:
+            git_index = tokens.index("git")
+            commit_index = tokens.index("commit", git_index + 1)
+        except ValueError:
+            continue
+        target = Path(cwd or ".").resolve(strict=False)
+        index = git_index + 1
+        while index < commit_index:
+            option = tokens[index]
+            if option == "-C":
+                index += 1
+                if index >= commit_index:
+                    directories.append(None)
+                    break
+                option = tokens[index]
+                change_to = Path(option)
+                target = change_to if change_to.is_absolute() else target / change_to
+            elif option.startswith("-C") and len(option) > 2:
+                change_to = Path(option[2:])
+                target = change_to if change_to.is_absolute() else target / change_to
+            index += 1
+        else:
+            directories.append(str(target))
+    return directories
+
+
 def _commit_em_main_ou_master(cmd: str, cwd: str) -> bool:
-    if not _e_git_commit(cmd):
-        return False
-    branch = _branch_atual(cwd)
-    return branch in ("main", "master")
+    directories = _diretorios_de_commit(cmd, cwd)
+    if _e_git_commit(cmd) and not directories:
+        return True
+    for directory in directories:
+        branch = _branch_atual(directory) if directory is not None else None
+        if branch in ("main", "master") or branch is None:
+            return True
+    return False
 
 
 def main() -> None:

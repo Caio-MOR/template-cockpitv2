@@ -138,6 +138,23 @@ def test_permite_commit_em_branch_de_feature(repo_git_feature: Path):
     assert r.returncode == 0, r.stdout + r.stderr
 
 
+def test_bloqueia_commit_em_main_apontado_por_git_c(repo_git: Path):
+    """O alvo de `git -C` prevalece sobre um cwd externo sem repositório."""
+    r = _rodar_hook(
+        "guarda_bash.py",
+        {"tool_input": {"command": f"git -C {repo_git} commit -m x"}, "cwd": str(repo_git.parent)},
+    )
+    assert r.returncode == 2, r.stdout + r.stderr
+
+
+def test_permite_commit_em_feature_apontado_por_git_c(repo_git_feature: Path):
+    r = _rodar_hook(
+        "guarda_bash.py",
+        {"tool_input": {"command": f"git -C {repo_git_feature} commit -m x"}, "cwd": str(repo_git_feature.parent)},
+    )
+    assert r.returncode == 0, r.stdout + r.stderr
+
+
 def test_permite_push_sem_force_para_branch_de_feature(repo_git_feature: Path):
     r = _rodar_hook(
         "guarda_bash.py",
@@ -151,10 +168,10 @@ def test_permite_comando_git_inofensivo(repo_git: Path):
     assert r.returncode == 0, r.stdout + r.stderr
 
 
-def test_permite_commit_em_main_fora_de_repo_git(tmp_path: Path):
-    """cwd sem `.git`: não é possível descobrir a branch, então não bloqueia."""
+def test_bloqueia_commit_com_branch_desconhecida(tmp_path: Path):
+    """Operação de commit sem contexto verificável falha fechada."""
     r = _rodar_hook("guarda_bash.py", {"tool_input": {"command": "git commit -m x"}, "cwd": str(tmp_path)})
-    assert r.returncode == 0, r.stdout + r.stderr
+    assert r.returncode == 2, r.stdout + r.stderr
 
 
 # ---------------------------------------------------------------------------
