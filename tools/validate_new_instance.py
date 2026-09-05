@@ -10,6 +10,7 @@ from pathlib import Path
 
 BUILD_RECORDS = (".specs/features/template-v2",)
 PLACEHOLDER = re.compile(r"(?<!\$)\{\{[A-Za-z_][\w-]*\}\}")
+IGNORE_MARKER = "padrao-ouro:ignorar"
 TEXT_EXTENSIONS = {"", ".md", ".toml", ".yml", ".yaml", ".json", ".ini", ".cfg", ".txt"}
 GATES = (
     ("doctor", ("tools/doctor.py",)),
@@ -29,7 +30,8 @@ def static_findings(root: Path) -> list[str]:
         if not path.is_file() or ".git" in path.parts or ".venv" in path.parts or ".tmp" in path.parts or path.suffix.lower() not in TEXT_EXTENSIONS:
             continue
         try:
-            if PLACEHOLDER.search(path.read_text(encoding="utf-8")):
+            text = path.read_text(encoding="utf-8")
+            if any(PLACEHOLDER.search(line) and IGNORE_MARKER not in line for line in text.splitlines()):
                 findings.append(path.relative_to(root).as_posix())
         except UnicodeError:
             continue

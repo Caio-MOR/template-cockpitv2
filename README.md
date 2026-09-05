@@ -68,7 +68,7 @@ gh repo create <novo-repo> --template {{DONO}}/template-cockpitv2 --private
 
 Depois, no clone novo, é o **agente** quem executa este checklist ao abrir a primeira sessão — o humano só decide nome, descrição e idioma:
 
-1. Ask for the project name, short description, default language, GitHub owner, and the template owner. Replace only the declared instance placeholders in `AGENTS.md` (`{{NOME_DO_REPO}}`, `{{IDIOMA}}`), `README.md` (`{{NOME_DO_REPO}}`, `{{DESCRICAO}}`, `{{DONO}}`), and `.github/CODEOWNERS` (`{{GITHUB_OWNER}}`). Do not perform a repository-wide placeholder replacement: code and tests may contain deliberate template-like strings.
+1. Ask for the project name, short description, default language, GitHub owner, and the template owner. Replace only the declared instance placeholders in `AGENTS.md` (`{{NOME_DO_REPO}}`, `{{IDIOMA}}`), `README.md` (`{{NOME_DO_REPO}}`, `{{DESCRICAO}}`, `{{DONO}}`), and `.github/CODEOWNERS` (`{{GITHUB_OWNER}}`). Do not perform a repository-wide placeholder replacement: code and tests may contain deliberate template-like strings. <!-- padrao-ouro:ignorar -->
 2. Criar o `.venv` conforme a seção "Como rodar" acima.
 3. If using Codex subagents, copy `.codex/config.example.toml` to `.codex/config.toml` (local, fora do git); otherwise leave the example untouched.
 4. Executar `python tools/initialize_template.py --dry-run .`, revisar a lista, e então executar `python tools/initialize_template.py .`.
