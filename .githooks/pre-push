@@ -1,0 +1,115 @@
+#!/bin/sh
+# pre-push versionado: recusa o push se algum gate mecânico reprovar.
+# %% formato: cadeia (cada gate roda em sequência; o primeiro que reprova bloqueia)
+#
+# Primeira linha de defesa do repo: os mesmos gates que o CI de PR roda
+# (.github/workflows/tests.yml) rodam AQUI, na máquina de quem empurra, antes de o
+# push sair. O CI hospedado é a rede, não a primeira linha — por isso ele só roda em
+# pull_request e o hook cobre o SO de quem desenvolve sem gastar minuto hospedado.
+#
+# Ativação: `git config core.hooksPath .githooks` (o inicializador do template faz
+# isso; `tools/doctor.py` reprova o clone que não fez).
+#
+# Brechas assumidas e documentadas: `git push --no-verify` pula este hook (o hook
+# `guarda_bash.py` do Claude Code bloqueia `--no-verify` para o agente, não para o
+# humano), e a variável COCKPIT_PYTHON troca o interpretador (existe para o teste do
+# hook e para máquinas cuja .venv mora fora da raiz). O CI de PR não tem nenhuma das
+# duas brechas.
+#
+# Sh POSIX puro: roda no Git Bash do Windows, no Mac e no Linux.
+
+ZERO_SHA="0000000000000000000000000000000000000000"
+
+TOPLEVEL=$(git rev-parse --show-toplevel) || exit 1
+cd "$TOPLEVEL" || exit 1
+
+# --- ref empurrada: só deleção de branch não tem o que validar --------------------
+tem_conteudo=0
+while read -r local_ref local_sha remote_ref remote_sha; do
+    [ -z "$local_ref" ] && continue
+    [ "$local_sha" = "$ZERO_SHA" ] && continue
+    tem_conteudo=1
+done
+if [ "$tem_conteudo" = "0" ]; then
+    exit 0
+fi
+
+# --- interpretador: .venv do repo primeiro; python3 só se funcionar de verdade ------
+# (no Windows, `python3` no PATH pode ser o atalho da Microsoft Store, que não roda).
+# PYFLAG só existe para o launcher `py` do Windows (`py -3.12`); os demais são um
+# caminho único, sempre entre aspas — .venv com espaço no caminho é o caso comum.
+funciona() { "$@" -c "import sys" >/dev/null 2>&1; }
+
+PYFLAG=""
+if [ -n "$COCKPIT_PYTHON" ]; then
+    PYBIN="$COCKPIT_PYTHON"
+elif [ -x "$TOPLEVEL/.venv/Scripts/python.exe" ]; then
+    PYBIN="$TOPLEVEL/.venv/Scripts/python.exe"
+elif [ -x "$TOPLEVEL/.venv/bin/python" ]; then
+    PYBIN="$TOPLEVEL/.venv/bin/python"
+elif funciona python3; then
+    PYBIN="python3"
+elif funciona py -3.12; then
+    PYBIN="py"; PYFLAG="-3.12"
+elif funciona python; then
+    PYBIN="python"
+else
+    echo "[pre-push] BLOQUEADO: nenhum interpretador Python encontrado (.venv, python3, py -3.12, python)." >&2
+    exit 1
+fi
+echo "[pre-push] python = $PYBIN $PYFLAG"
+py() {
+    if [ -n "$PYFLAG" ]; then "$PYBIN" "$PYFLAG" "$@"; else "$PYBIN" "$@"; fi
+}
+
+# --- modo do auditor: template (placeholders permitidos) ou instância ---------------
+# O mesmo critério do CI: enquanto AGENTS.md ainda carrega {{NOME_DO_REPO}}, o repo é
+# o template; depois de instanciado, o auditor roda sem desculpa para placeholder.
+AUDIT_FLAGS="--tipo cockpit"
+if grep -q '{{NOME_DO_REPO}}' AGENTS.md 2>/dev/null; then  # padrao-ouro:ignorar
+    AUDIT_FLAGS="$AUDIT_FLAGS --template"
+fi
+
+# --- gates -------------------------------------------------------------------------
+falhou=""
+gate() {
+    nome="$1"; shift
+    echo "[pre-push] gate: $nome"
+    if ! "$@"; then
+        falhou="$nome"
+        return 1
+    fi
+}
+
+# shellcheck disable=SC2086  # AUDIT_FLAGS são flags separadas por espaço, de propósito
+gate "veredito da suite (tools/gate_veredito.py)" py tools/gate_veredito.py \
+&& gate "lint de routers (tools/lint_routers.py)" py tools/lint_routers.py \
+&& gate "auditor do padrao ouro (tools/padrao_ouro_audit.py)" py tools/padrao_ouro_audit.py $AUDIT_FLAGS . \
+&& gate "politica de segredos (tools/policy_check.py)" py tools/policy_check.py . \
+&& gate "auditor operacional (tools/operational_audit.py)" py tools/operational_audit.py .
+
+if [ -z "$falhou" ]; then
+    if py -m ruff --version >/dev/null 2>&1; then
+        gate "lint de estilo (ruff)" py -m ruff check .
+    else
+        echo "[pre-push] AVISO: ruff não está instalado neste interpretador; o lint de estilo fica para o CI de PR." >&2
+    fi
+fi
+
+if [ -z "$falhou" ]; then
+    if command -v gitleaks >/dev/null 2>&1; then
+        gate "varredura de segredos (gitleaks)" gitleaks detect --source . --no-banner --redact
+    else
+        echo "[pre-push] AVISO: gitleaks não está no PATH; a varredura de segredos fica para o CI de PR (.github/workflows/gitleaks.yml)." >&2
+    fi
+fi
+
+if [ -n "$falhou" ]; then
+    echo "" >&2
+    echo "[pre-push] BLOQUEADO pelo gate: $falhou" >&2
+    echo "[pre-push] Conserte e empurre de novo. Pular com --no-verify é decisão registrada, não atalho." >&2
+    exit 1
+fi
+
+echo "[pre-push] todos os gates verdes; push liberado"
+exit 0

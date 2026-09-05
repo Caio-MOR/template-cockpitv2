@@ -23,6 +23,7 @@
 
 # Pastas versionadas
 !/.github/
+!/.githooks/
 !/.claude/
 !/.codex/
 !/tools/

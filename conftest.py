@@ -17,7 +17,7 @@ if str(RAIZ) not in sys.path:
 
 # Coleta medida da suíte. Um teste confere este número contra a coleta real: número
 # solto em comentário apodrece em silêncio, número com sensor não.
-COLETA_MEDIDA = 223
+COLETA_MEDIDA = 230
 # Piso: a folga (metade da coleta) absorve remoção legítima pontual sem mascarar o
 # desaparecimento de um arquivo inteiro. Baixar este número é decisão de PR com
 # justificativa, nunca ajuste silencioso para "passar".

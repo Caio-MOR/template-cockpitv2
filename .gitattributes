@@ -7,3 +7,6 @@
 *.cmd text eol=crlf
 *.vbs text eol=crlf
 *.sh  text eol=lf
+
+# Hooks de git versionados são scripts sh: LF em qualquer máquina (CRLF quebra o sh).
+.githooks/* text eol=lf
