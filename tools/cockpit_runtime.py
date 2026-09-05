@@ -519,7 +519,11 @@ def verify_restore(
         manifest = json.loads(Path(manifest_path).read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return RestoreReport(False, ("manifest_unreadable",))
+    if not isinstance(manifest, Mapping):
+        return RestoreReport(False, ("manifest_invalid",))
     encryption = manifest.get("encryption", {})
+    if not isinstance(encryption, Mapping):
+        return RestoreReport(False, ("encryption_invalid",))
     if policy.encryption_required:
         if not encryption.get("required"):
             errors.append("encryption_not_required")
@@ -550,6 +554,11 @@ def verify_restore(
             errors.append(f"size_mismatch:{relative}")
         if digest != entry.get("sha256"):
             errors.append(f"hash_mismatch:{relative}")
-    required_paths = set(policy.required_paths) | set(manifest.get("required_paths", []))
+    manifest_required_paths = manifest.get("required_paths", [])
+    if not isinstance(manifest_required_paths, list) or not all(
+        isinstance(path, str) for path in manifest_required_paths
+    ):
+        return RestoreReport(False, tuple(errors + ["required_paths_invalid"]))
+    required_paths = set(policy.required_paths) | set(manifest_required_paths)
     errors.extend(f"required_missing:{path}" for path in sorted(required_paths - declared_paths))
     return RestoreReport(not errors, tuple(errors))

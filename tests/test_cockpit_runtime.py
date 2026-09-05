@@ -297,3 +297,28 @@ def test_restore_rejects_path_traversal_and_missing_required_file(tmp_path: Path
     assert not report.ok
     assert "path_traversal" in report.errors
     assert "required_missing:important.txt" in report.errors
+
+
+@pytest.mark.parametrize(
+    ("manifest", "expected"),
+    [
+        ([], "manifest_invalid"),
+        ({"encryption": [], "entries": []}, "encryption_invalid"),
+        (
+            {
+                "encryption": {"required": True, "algorithm": "age", "key_id": "key"},
+                "required_paths": {"bad": "value"},
+                "entries": [],
+            },
+            "required_paths_invalid",
+        ),
+    ],
+)
+def test_restore_rejects_malformed_manifest_shapes(
+    tmp_path: Path, manifest: object, expected: str
+) -> None:
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    report = verify_restore(manifest_path, tmp_path / "restore", BackupPolicy(required_key_id="key"))
+    assert not report.ok
+    assert report.errors == (expected,)
