@@ -2,7 +2,7 @@
 
 **Date**: 2026-09-05  
 **Spec**: `.specs/features/template-v2/spec.md`  
-**Diff range**: `main..236cdefd6a92588783249166a918e33d8588c929`
+**Diff range**: `main..59f37e87007981a5afd886624fca90b074ea7879`
 **Verifier**: independent verifier (author != verifier)
 
 ## Validation
@@ -38,7 +38,7 @@ A clean local clone at `4a1f0329a682774d5f9f9d23c6ba8a2f6e62e136` was placed on 
 ## Gate Check
 
 - Python environment: 3.12.13.
-- `python tools/gate_veredito.py`: 217 passed; independent guards and both canaries behaved as required.
+- `python tools/gate_veredito.py`: 220 passed; independent guards and both canaries behaved as required.
 - `python tools/doctor.py`: `doctor: APROVADO`.
 - `python tools/policy_check.py .`: `policy_check: APROVADO`.
 - `python tools/operational_audit.py .`: `operational score: 10.0/10.0`.
@@ -68,6 +68,12 @@ Six behavior-level mutations were made only in disposable git worktrees; the rea
 Commit `236cdef` addresses the Windows 2025 failure in which `actions/setup-python` did not provide the exact `3.12.13` patch declared by `.python-version`. Linux and macOS retain the pinned `actions/setup-python` step. Windows now uses the full-SHA-pinned `astral-sh/setup-uv` action, reads the repository pin, creates a managed `.venv`, and runs both the hash-locked install and external verdict through `.venv\Scripts\python.exe` (`.github/workflows/tests.yml:62`, `.github/workflows/tests.yml:70`, `.github/workflows/tests.yml:79`, `.github/workflows/tests.yml:92`).
 
 `tests/test_ci_pinado.py:278`–`tests/test_ci_pinado.py:283` asserts every part of that Windows contract. The focused test passed and the independent verdict reported 217 passing tests. A disposable-worktree mutation that removed `--managed-python` from `.github/workflows/tests.yml:71` was killed by the assertion at `tests/test_ci_pinado.py:281`; the real worktree porcelain matched its baseline after cleanup.
+
+## Post-publication Windows Lock Re-verification
+
+Commit `59f37e87007981a5afd886624fca90b074ea7879` removes the Windows use of `os.kill(pid, 0)`: on Windows this emits `CTRL_C_EVENT` to the shared console rather than providing the POSIX liveness probe. `_windows_process_state` uses `OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION)`, declares `HANDLE`/`DWORD` argument and result types, reads `GetExitCodeProcess`, and closes every non-null handle in `finally` (`tools/cockpit_runtime.py:42`, `tools/cockpit_runtime.py:58`, `tools/cockpit_runtime.py:67`). Only invalid PID (`ERROR_INVALID_PARAMETER`) is dead; access-denied, query failure, and unknown states return indeterminate, which `_pid_is_alive` treats as alive (`tools/cockpit_runtime.py:60`, `tools/cockpit_runtime.py:76`). POSIX retains `os.kill(pid, 0)` (`tools/cockpit_runtime.py:78`).
+
+`tests/test_cockpit_runtime.py:101`–`tests/test_cockpit_runtime.py:110` parameterizes live, dead, and indeterminate Windows process states and asserts no `os.kill` call. The focused test reported 3 passing cases and the full independent verdict reported 220 passing tests. A disposable-worktree mutation changing fail-closed indeterminate handling to dead was killed by `tests/test_cockpit_runtime.py:109`; the real worktree porcelain matched its baseline after cleanup.
 
 ## Scope and Quality
 
