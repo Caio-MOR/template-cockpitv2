@@ -2,7 +2,7 @@
 
 **Date**: 2026-09-05  
 **Spec**: `.specs/features/template-v2/spec.md`  
-**Diff range**: `main..7c5690d3898f9430ddb57e92f90e55cebdf16cb0`
+**Diff range**: `main..a6f313de252d33e31d0696095babb9da8ba740ff`
 **Verifier**: independent verifier (author != verifier)
 
 ## Validation
@@ -80,6 +80,14 @@ Commit `59f37e87007981a5afd886624fca90b074ea7879` removes the Windows use of `os
 Commit `7c5690d3898f9430ddb57e92f90e55cebdf16cb0` fixes the real Windows failure caused by calling `fsync` on a read-only `rb` descriptor, which returns `EBADF`. The marker is still written first, then reopened with writable binary access (`r+b`) for durable flush before the existing atomic `os.replace` (`workflows/_exemplo-rotina/scripts/rotina_exemplo.py:83`, `workflows/_exemplo-rotina/scripts/rotina_exemplo.py:89`). The workflow error contract documents the Windows-specific durable-marker failure without changing idempotency or rename semantics (`workflows/_exemplo-rotina/workflow.md:55`).
 
 Focused proof: `tests/test_rotina_exemplo_runtime.py:113` — `test_atomic_marker_fault_preserves_previous_marker` passed. The patch is limited to the writable flush descriptor and its workflow documentation.
+
+## Final UTF-8 and macOS Runtime Re-verification
+
+Commit `a62e63eabe327f3e696712def444aaf8e7aa2186` makes all workflow-runtime test reads explicit UTF-8 (`tests/test_rotina_exemplo_runtime.py:33`, `tests/test_rotina_exemplo_runtime.py:44`, `tests/test_rotina_exemplo_runtime.py:117`), fixing Windows decoding under its locale-dependent default encoding without changing test outcomes.
+
+Commit `a6f313de252d33e31d0696095babb9da8ba740ff` applies the already-reviewed exact managed-Python strategy to both macOS jobs after the macOS arm64 runner lacked `3.12.13`: two full-SHA-pinned `setup-uv` steps, `.python-version` driven managed environments, hash-locked installation, and `.venv` executables for every gate (`.github/workflows/tests-macos.yml:30`, `.github/workflows/tests-macos.yml:36`, `.github/workflows/tests-macos.yml:58`, `.github/workflows/tests-macos.yml:64`). The shared declarative gate asserts both Windows and macOS contracts (`tests/test_ci_pinado.py:271`–`tests/test_ci_pinado.py:294`).
+
+Targeted proof ran all workflow-runtime tests and the shared CI portability assertion: 6 passed. The external verdict remained green with 220 passing tests. The worktree was clean before this report update.
 
 ## Scope and Quality
 
