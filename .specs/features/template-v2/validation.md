@@ -2,7 +2,7 @@
 
 **Date**: 2026-09-05  
 **Spec**: `.specs/features/template-v2/spec.md`  
-**Diff range**: `main..a6f313de252d33e31d0696095babb9da8ba740ff`
+**Diff range**: `main..21bcf45b469c2f7983322fd827aff974af7d5a1b`
 **Verifier**: independent verifier (author != verifier)
 
 ## Validation
@@ -88,6 +88,12 @@ Commit `a62e63eabe327f3e696712def444aaf8e7aa2186` makes all workflow-runtime tes
 Commit `a6f313de252d33e31d0696095babb9da8ba740ff` applies the already-reviewed exact managed-Python strategy to both macOS jobs after the macOS arm64 runner lacked `3.12.13`: two full-SHA-pinned `setup-uv` steps, `.python-version` driven managed environments, hash-locked installation, and `.venv` executables for every gate (`.github/workflows/tests-macos.yml:30`, `.github/workflows/tests-macos.yml:36`, `.github/workflows/tests-macos.yml:58`, `.github/workflows/tests-macos.yml:64`). The shared declarative gate asserts both Windows and macOS contracts (`tests/test_ci_pinado.py:271`–`tests/test_ci_pinado.py:294`).
 
 Targeted proof ran all workflow-runtime tests and the shared CI portability assertion: 6 passed. The external verdict remained green with 220 passing tests. The worktree was clean before this report update.
+
+## Final Windows Git-Path Hook Re-verification
+
+Commit `21bcf45b469c2f7983322fd827aff974af7d5a1b` fixes the Windows parser failure where POSIX `shlex` consumed backslashes in `git -C C:\\...` targets. Windows now uses non-POSIX tokenization and removes only surrounding quote delimiters; POSIX keeps its previous tokenization (`.claude/hooks/guarda_bash.py:94`–`.claude/hooks/guarda_bash.py:98`). The parsed `-C` target still feeds the existing branch check, so `main` and `master` remain blocked (`.claude/hooks/guarda_bash.py:112`–`.claude/hooks/guarda_bash.py:137`). Malformed tokenization continues to add an unknown directory and fail closed (`.claude/hooks/guarda_bash.py:99`–`.claude/hooks/guarda_bash.py:102`).
+
+Focused proof: the hook suite reported 49 passing tests. An isolated platform-mocked parser probe preserved `C:\\tmp\\repo`, classified its branch as `main`, and blocked the commit without mutating global `os.name`; an unterminated quoted command also failed closed. The external verdict remained green with 220 passing tests. The worktree was clean before this report update.
 
 ## Scope and Quality
 
