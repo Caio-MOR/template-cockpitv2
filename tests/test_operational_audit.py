@@ -52,9 +52,9 @@ def test_removing_a_control_lowers_the_score(path: str, replacement: str) -> Non
 @pytest.mark.parametrize(
     "command",
     (
-        "ruff check .",
-        "gitleaks detect --source . --no-banner --redact --verbose",
-        "bandit --quiet --recursive --severity-level medium --confidence-level medium tools workflows",
+        "PY -m ruff check .",
+        "GITLEAKS detect --source . --no-banner --redact --verbose",
+        "PY -m bandit --quiet --recursive --severity-level medium --confidence-level medium tools workflows",
     ),
 )
 def test_missing_required_local_command_lowers_the_score(command: str) -> None:

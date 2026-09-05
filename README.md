@@ -13,30 +13,32 @@ Python is fixed at 3.12.13 (`.python-version`). A root `.venv` is each machine's
 ```
 py install 3.12.13
 py -V:3.12.13 -m venv .venv
-.venv\Scripts\python.exe -m pip install -r requirements.txt
+.venv\Scripts\python.exe -m pip install --require-hashes -r requirements.txt
 ```
 
-**Mac/Linux** (com `uv`, ou com o Python do sistema):
+**Mac/Linux** (com `uv`):
 
 ```
 uv venv .venv --python 3.12.13
-uv pip install -r requirements.txt
+uv pip install --require-hashes -r requirements.txt
 ```
 
-ou `python3.12.13 -m venv .venv && .venv/bin/python -m pip install -r requirements.txt`.
+The root `.venv` is the only interpreter for repository commands. Set `PY` to
+`.venv\Scripts\python.exe` on Windows or `.venv/bin/python` on Mac/Linux; do not
+substitute a system Python, `ruff`, `pip-audit`, or `bandit` executable.
 
 ## Verificar localmente
 
 Run these commands on the user's chosen computer or local environment before delivery. Record the commit, operating system, Python version, and result for every command. A missing tool or a failed command blocks the delivery; do not report a substitute or assumed pass.
 
-- `python tools/gate_veredito.py` — esperado `veredito: VERDE` (guarda de conteúdo + canário + suíte).
-- `python tools/lint_routers.py` — esperado `0 erro(s)`.
-- `python tools/doctor.py`, `python tools/policy_check.py .`, `python tools/operational_audit.py .`, `python tools/lint_routers.py` e `python tools/gate_veredito.py` — os cinco gates locais; todos precisam passar.
-- `python tools/padrao_ouro_audit.py --tipo cockpit .` — auditor do padrão ouro: placar 0–10 e a lista do que falta, com arquivo e linha. No template ele roda com `--template` (placeholders permitidos); no repo instanciado, sem a flag. Está no padrão quem mede 9 ou mais.
-- `ruff check .` — style gate.
-- `pip-audit --strict --progress-spinner off` — dependency vulnerability audit.
-- `bandit --quiet --recursive --severity-level medium --confidence-level medium tools workflows` — static security analysis.
-- `gitleaks detect --source . --no-banner --redact --verbose` — full-history secret scan. Install `gitleaks` locally first when it is absent, then run this exact command; do not replace it with an unverified scan.
+- `PY tools/gate_veredito.py` — esperado `veredito: VERDE` (guarda de conteúdo + canário + suíte).
+- `PY tools/lint_routers.py` — esperado `0 erro(s)`.
+- `PY tools/doctor.py`, `PY tools/policy_check.py .`, `PY tools/operational_audit.py .`, `PY tools/lint_routers.py` e `PY tools/gate_veredito.py` — os cinco gates locais; todos precisam passar.
+- `PY tools/padrao_ouro_audit.py --tipo cockpit .` — auditor do padrão ouro: placar 0–10 e a lista do que falta, com arquivo e linha. No template ele roda com `--template` (placeholders permitidos); no repo instanciado, sem a flag. Está no padrão quem mede 9 ou mais.
+- `PY -m ruff check .` — style gate.
+- `PY -m pip_audit --strict --progress-spinner off` — dependency vulnerability audit.
+- `PY -m bandit --quiet --recursive --severity-level medium --confidence-level medium tools workflows` — static security analysis.
+- `GITLEAKS detect --source . --no-banner --redact --verbose` — full-history secret scan. `GITLEAKS` must name a checksum-verified v8.30.1 binary, never an arbitrary installed tool. On Linux x64, use the exact archive and SHA-256 from `.github/workflows/gitleaks.yml`; on another platform, download the matching v8.30.1 archive and its official `gitleaks_8.30.1_checksums.txt` (fora do git), verify the archive checksum before extracting it, then set `GITLEAKS` to the extracted executable.
 
 The four files in `.github/workflows/` are manual hosted fallbacks only. Do not dispatch them or restore push, pull-request, merge-queue, or schedule triggers unless the repository owner explicitly chooses hosted execution. Native GitHub secret scanning, push protection, and Dependabot alerts remain separate GitHub controls and do not consume Actions minutes.
 

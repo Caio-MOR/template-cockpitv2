@@ -195,11 +195,11 @@ def _anti_fraud(repo: Repo) -> list[Finding]:
         findings += _finding(check, "pytest.ini", "non-strict xfail would hide regressions")
     readme = repo.text("README.md") or ""
     for command in (
-        "python tools/gate_veredito.py",
-        "python tools/lint_routers.py",
-        "python tools/operational_audit.py .",
-        "python tools/padrao_ouro_audit.py --tipo cockpit .",
-        "ruff check .",
+        "PY tools/gate_veredito.py",
+        "PY tools/lint_routers.py",
+        "PY tools/operational_audit.py .",
+        "PY tools/padrao_ouro_audit.py --tipo cockpit .",
+        "PY -m ruff check .",
     ):
         if command not in readme:
             findings += _finding(check, "README.md", f"local contract omits {command}")
@@ -227,9 +227,9 @@ def _security(repo: Repo) -> list[Finding]:
         findings += _finding(check, "SECURITY.md", "security policy lacks rotation guidance")
     readme = repo.text("README.md") or ""
     for command in (
-        "python tools/policy_check.py .",
-        "bandit --quiet --recursive --severity-level medium --confidence-level medium tools workflows",
-        "gitleaks detect --source . --no-banner --redact --verbose",
+        "PY tools/policy_check.py .",
+        "PY -m bandit --quiet --recursive --severity-level medium --confidence-level medium tools workflows",
+        "GITLEAKS detect --source . --no-banner --redact --verbose",
     ):
         if command not in readme:
             findings += _finding(check, "README.md", f"local contract omits {command}")
@@ -279,7 +279,7 @@ def _supply_chain(repo: Repo) -> list[Finding]:
         if "pip install" in text and "--require-hashes" not in text:
             findings += _finding(check, path, "pip install does not require lock hashes")
     readme = repo.text("README.md") or ""
-    if "pip-audit --strict --progress-spinner off" not in readme:
+    if "PY -m pip_audit --strict --progress-spinner off" not in readme:
         findings += _finding(check, "README.md", "local dependency vulnerability audit is absent")
     return findings
 
@@ -411,7 +411,7 @@ _CHECKS: tuple[tuple[str, Callable[[Repo], list[Finding]]], ...] = (
 
 def _remote_checks() -> tuple[RemoteCheck, ...]:
     return (
-        RemoteCheck("REMOTE-BRANCH", "Require pull requests, required checks, no bypass, resolved discussions, and independent approval when the repository has another maintainer."),
+        RemoteCheck("REMOTE-BRANCH", "Require pull requests, no bypass, resolved discussions, and recorded local verification evidence. Enable hosted required checks only after explicitly opting into hosted execution."),
         RemoteCheck("REMOTE-SECRETS", "Enable secret scanning and push protection where the repository plan supports them."),
         RemoteCheck("REMOTE-DEPENDABOT", "Enable dependency alerts and review update pull requests for both pip and Actions."),
         RemoteCheck("REMOTE-RECOVERY", "Confirm backup retention, restore drills, and account recovery contacts outside this checkout."),

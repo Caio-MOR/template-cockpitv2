@@ -51,7 +51,7 @@ Os 4 modos de falha que mais derrubam acerto. Siga à risca:
 - `python tools/lint_routers.py` — referências de todo `CLAUDE.md` (e `AGENTS.md`/`README.md`) contra o índice git, mais cobertura reversa de `workflows/` e `tools/`. Esperado: `0 erro(s)`.
 
 Antes de entregar qualquer mudança, execute as verificações locais do `README.md` no computador ou ambiente escolhido pelo usuário. Registre o commit, SO, versão do Python e resultado de cada comando; uma ferramenta ausente ou uma falha deixa a entrega bloqueada, nunca aprovada por suposição. Os workflows em `.github/workflows/` são fallback hospedado manual: nunca os dispare nem reative gatilhos automáticos sem escolha explícita do usuário.
-- `python tools/eval_runner.py --skills-dir .claude/skills` — evals de comportamento (prova de que uma skill dispara/fica quieta), gate **local**, não CI (sem credencial de subscription no runner do CI). `tests/test_evals_estrutura.py` (sem LLM) e `tests/test_criacao_nova.py` já rodam no CI e exigem que toda skill nova venha com uma pasta `evals/` (uma subpasta com o nome da skill, ver `evals/_exemplo-skill/`) (>= 1 positivo + 1 negativo).
+- `python tools/eval_runner.py --skills-dir .claude/skills` — evals de comportamento (prova de que uma skill dispara/fica quieta), gate **local** (sem credencial de subscription). `tests/test_evals_estrutura.py` (sem LLM) e `tests/test_criacao_nova.py` integram a suíte local e exigem que toda skill nova venha com uma pasta `evals/` (uma subpasta com o nome da skill, ver `evals/_exemplo-skill/`) (>= 1 positivo + 1 negativo).
 
 ## Regras globais
 

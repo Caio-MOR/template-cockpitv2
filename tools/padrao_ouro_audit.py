@@ -219,15 +219,15 @@ def chk_b02(repo, tipo, template):
 def chk_c01(repo, tipo, template):
     texto = repo.texto("README.md") or ""
     comandos = (
-        "python tools/gate_veredito.py",
-        "python tools/lint_routers.py",
-        "python tools/policy_check.py .",
-        "python tools/operational_audit.py .",
-        "python tools/padrao_ouro_audit.py --tipo cockpit .",
-        "ruff check .",
-        "pip-audit --strict --progress-spinner off",
-        "bandit --quiet --recursive --severity-level medium --confidence-level medium tools workflows",
-        "gitleaks detect --source . --no-banner --redact --verbose",
+        "PY tools/gate_veredito.py",
+        "PY tools/lint_routers.py",
+        "PY tools/policy_check.py .",
+        "PY tools/operational_audit.py .",
+        "PY tools/padrao_ouro_audit.py --tipo cockpit .",
+        "PY -m ruff check .",
+        "PY -m pip_audit --strict --progress-spinner off",
+        "PY -m bandit --quiet --recursive --severity-level medium --confidence-level medium tools workflows",
+        "GITLEAKS detect --source . --no-banner --redact --verbose",
     )
     if all(comando in texto for comando in comandos):
         return []
@@ -256,7 +256,7 @@ def chk_c02(repo, tipo, template):
 
 
 def chk_c03(repo, tipo, template):
-    if "gitleaks detect --source . --no-banner --redact --verbose" in (repo.texto("README.md") or ""):
+    if "GITLEAKS detect --source . --no-banner --redact --verbose" in (repo.texto("README.md") or ""):
         return []
     return [Reprovacao("PO-C03", "README.md", "contrato local não cita gitleaks")]
 
