@@ -261,6 +261,7 @@ def test_ci_chama_o_veredito_e_nao_o_pytest_direto():
     `tools/gate_veredito.py`, e nenhum step roda `pytest` a seco."""
     texto = (RAIZ / ".github" / "workflows" / "tests.yml").read_text(encoding="utf-8")
     assert "tools/gate_veredito.py" in texto
+    assert "tools/padrao_ouro_audit.py --tipo cockpit --template ." in texto
     corridas = [l.split("run:", 1)[1].strip() for l in texto.splitlines() if "run:" in l]
     assert not any(c in ("pytest -q", "pytest") for c in corridas), corridas
     assert "working-directory" not in texto, "gate rodado de subpasta não mede a árvore inteira"

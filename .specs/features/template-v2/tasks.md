@@ -155,9 +155,9 @@ T1 -> T2 -> T3 -> T5 -> T6 -> T7 -> T8 -> T4
 
 **Done when**:
 
-- [ ] Every versioned tool and workflow has a live router entry.
-- [ ] README gives the exact five local gates, gold template audit, and initialization commands.
-- [ ] `python3 tools/lint_routers.py` reports `0 erro(s)`.
+- [x] Every versioned tool and workflow has a live router entry.
+- [x] README gives the exact five local gates, gold template audit, and initialization commands.
+- [x] `python3 tools/lint_routers.py` reports `0 erro(s)`.
 
 **Tests**: declarative
 **Gate**: `python3 tools/doctor.py && python3 tools/policy_check.py . && python3 tools/operational_audit.py . && python3 tools/padrao_ouro_audit.py --tipo cockpit --template . && python3 tools/lint_routers.py && python3 tools/gate_veredito.py`

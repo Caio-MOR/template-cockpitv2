@@ -9,7 +9,7 @@ name: tests
 # no Windows; `Path.is_absolute()` que é no-op fora dele). `gitleaks.yml` fica fora da
 # matriz de propósito: varre conteúdo do histórico, não comportamento de plataforma.
 #
-# Matriz enxuta (herdada da PR Caio-MOR/Cakopit#14): macOS custa 10x o minuto do
+# Matriz enxuta: macOS custa 10x o minuto do
 # ubuntu, sem rodar em todo push. Ele sai deste workflow e vira `tests-macos.yml`,
 # semanal — continua sendo verificado, só que não a cada commit. Em PR a matriz de
 # suíte e na fila de merge segue ubuntu+windows (o par que pega os dois bugs citados
@@ -91,7 +91,7 @@ jobs:
 
       # A régua do padrão ouro, no repo-template: placeholders permitidos. No repo
       - name: Auditor do padrão ouro
-        run: python tools/padrao_ouro_audit.py --tipo cockpit .
+        run: python tools/padrao_ouro_audit.py --tipo cockpit --template .
 
       - name: Política vendor-neutral de segredos
         run: python tools/policy_check.py .

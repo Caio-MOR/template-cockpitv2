@@ -1,6 +1,6 @@
 # Operations baseline
 
-This document is the durable operating contract for Cakopit Codex. A workflow is
+This document is the durable operating contract for this cockpit. A workflow is
 not production-ready merely because its happy path runs; it must satisfy the
 runtime, evidence, recovery, and credential rules below.
 
@@ -102,7 +102,7 @@ the custom label `cakopit-codex`. GitHub remains the merge-enforcement control p
 the Mac supplies the compute without consuming GitHub-hosted minutes.
 
 - Keep the runner repository-scoped and accept jobs only from this private repository.
-- Keep repository access owner-only while the persistent runner uses the owner's Mac.
+- Assign repository ownership through `.github/CODEOWNERS` during initialization; do not encode a personal account or machine in this template.
   Before adding any collaborator, stop the service and move it to a dedicated non-admin
   account or disposable host. The in-workflow author check is defense in depth, not the
   trust boundary, because pull-request workflow content can change with the branch.

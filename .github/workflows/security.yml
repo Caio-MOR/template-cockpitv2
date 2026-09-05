@@ -2,7 +2,7 @@ name: security
 
 # Verificações locais de dependências e código: nenhuma credencial é necessária.
 # pip-audit e Bandit rodam em PRs e na main. A ação nativa de dependency review
-# exige GitHub Code Security em repositórios privados e não está disponível aqui.
+# depends on the repository plan and is intentionally not required by this workflow.
 
 on:
   pull_request:

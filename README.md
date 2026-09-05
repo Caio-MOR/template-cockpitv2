@@ -31,6 +31,7 @@ Os mesmos comandos do CI (`.github/workflows/tests.yml`), rodados com o Python d
 
 - `python tools/gate_veredito.py` — esperado `veredito: VERDE` (guarda de conteúdo + canário + suíte).
 - `python tools/lint_routers.py` — esperado `0 erro(s)`.
+- `python tools/doctor.py`, `python tools/policy_check.py .`, `python tools/operational_audit.py .`, `python tools/lint_routers.py` e `python tools/gate_veredito.py` — os cinco gates locais; todos precisam passar.
 - `python tools/padrao_ouro_audit.py --tipo cockpit .` — auditor do padrão ouro: placar 0–10 e a lista do que falta, com arquivo e linha. No template ele roda com `--template` (placeholders permitidos); no repo instanciado, sem a flag. Está no padrão quem mede 9 ou mais.
 
 ## O que é cada peça e por quê
@@ -56,6 +57,11 @@ A memória automática do Claude Code vive **fora do repo**, no diretório de me
 
 ## Como instanciar
 
+## Bootstrap
+
+The first agent session replaces the declared placeholders, initializes the project
+state, and verifies the new repository before project work begins.
+
 ```
 gh repo create <novo-repo> --template {{DONO}}/template-cockpit --private
 ```
@@ -64,7 +70,8 @@ Depois, no clone novo, é o **agente** quem executa este checklist ao abrir a pr
 
 1. Se houver `{{...}}` em qualquer arquivo do repo, perguntar ao usuário, em linguagem simples (sem jargão técnico), o nome do projeto, uma descrição curta e o idioma padrão — e substituir todas as ocorrências.
 2. Criar o `.venv` conforme a seção "Como rodar" acima.
-3. Rodar os dois gates e o auditor **sem** `--template` (a instância real não tem mais placeholder para desculpar).
+3. Executar `python tools/initialize_template.py --dry-run .`, revisar a lista, e então executar `python tools/initialize_template.py .`.
+4. Rodar os cinco gates e o auditor do padrão ouro **sem** `--template` (a instância real não tem mais placeholder para desculpar).
 4. Instalar as skills de processo do marketplace `caio-mor` (já registrado em `.claude/settings.json`, mas registro não instala sozinho — cada plugin precisa de comando explícito):
    ```
    claude plugin install tlc-spec-driven@caio-mor

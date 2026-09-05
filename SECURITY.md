@@ -5,12 +5,12 @@
 Please do not open a public issue for a suspected vulnerability or paste a
 credential into a pull request. Contact the repository owner privately through
 the channel through which repository access was granted. If that is unavailable,
-use the verified contact links on [Caio-MOR's GitHub profile](https://github.com/Caio-MOR).
+use the repository's verified owner contact.
 Include the affected file or component, reproduction steps, impact, and a safe way
 to follow up. Redact tokens, personal data, and other secrets.
 
 Reports are acknowledged as soon as practical and triaged according to impact.
-This repository is a private cockpit instance; it does not provide an SLA or a bounty.
+This template does not provide an SLA or a bounty.
 
 ## Credential handling
 
