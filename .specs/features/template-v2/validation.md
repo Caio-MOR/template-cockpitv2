@@ -102,3 +102,73 @@ Focused proof: the hook suite reported 49 passing tests. An isolated platform-mo
 - The optional Codex profile is example-only: `.codex/config.example.toml`; `tests/test_runner_sincronizado.py:80` asserts no tracked active profile.
 - No waived or skipped tests were used. The tracked tree contains no personal runner configuration, absolute personal filesystem path, or tracked `.gitleaksignore`; policy and CI checks cover those conditions.
 - The only historical copied name is the canonical eval owner in the documented, SHA-pinned synchronization attestation; it is required by the specification.
+
+## Local-first Amendment Independent Re-verification
+
+**Date**: 2026-09-05
+**Diff range**: `b016698..04f978905e4e4066b3599f3661e6d4a704eb9722`
+**Verifier**: independent verifier (author != verifier)
+**Result**: PASS
+
+The current branch was checked locally only. No hosted workflow was dispatched and no
+automatic trigger was restored. All four workflow files declare only
+`workflow_dispatch`; the retained manual test fallback still names both
+`ubuntu-24.04` and `windows-2025`
+(`tests/test_ci_pinado.py:168`–`tests/test_ci_pinado.py:179`;
+`.github/workflows/tests.yml:10`–`tests.yml:28`). The historical hosted
+cross-platform reports above describe earlier revisions only and are not evidence for
+this amendment.
+
+The local canonical-environment requirement is explicit in
+`AGENTS.md:50`–`AGENTS.md:53` and the README requires recorded commit, OS, Python,
+and each command result while blocking unavailable or failed commands
+(`README.md:27`–`README.md:48`). It supplies executable POSIX and PowerShell
+bindings and the Windows managed-`uv` recipe
+(`README.md:11`–`README.md:32`). Security, audit, and evidence are local
+contracts: the auditor rejects missing local commands
+(`tools/operational_audit.py:196`–`tools/operational_audit.py:205`,
+`tools/operational_audit.py:228`–`tools/operational_audit.py:235`) and the
+ten-category assertion is outcome-tested at `tests/test_operational_audit.py:24`–`tests/test_operational_audit.py:30`.
+
+### Fresh initialized-instance proof
+
+A fresh local clone at `04f978905e4e4066b3599f3661e6d4a704eb9722` used a new
+3.12.13 virtual environment created with the documented `uv` commands and
+hash-locked installation. After replacing only the six documented instance
+placeholders, the documented dry run listed only
+`.specs/features/template-v2` and `.specs/STATE.md`; initialization applied those
+allowlisted changes. On a named fixture branch,
+`validate_new_instance: APROVADO` passed, including its non-template gold audit and
+all bootstrap gates.
+
+### Local evidence
+
+Environment: macOS 26.6.2, Python 3.12.13, commit
+`04f978905e4e4066b3599f3661e6d4a704eb9722`.
+
+| Command | Result |
+| --- | --- |
+| `PY tools/gate_veredito.py` | `veredito: VERDE`; 223 passed, with both canaries and independent guards green |
+| `PY tools/doctor.py` | `doctor: APROVADO` |
+| `PY tools/policy_check.py .` | `policy_check: APROVADO` |
+| `PY tools/operational_audit.py .` | `operational score: 10.0/10.0` |
+| `PY tools/lint_routers.py` | `0 erro(s)` |
+| `PY tools/padrao_ouro_audit.py --tipo cockpit --template .` | `placar: 10.0/10` |
+| `PY -m ruff check .` | passed |
+| `PY -m pip_audit --strict --progress-spinner off` | `No known vulnerabilities found` |
+| `PY -m bandit --quiet --recursive --severity-level medium --confidence-level medium tools workflows` | passed |
+| checksum-verified Gitleaks v8.30.1 `detect --source . --no-banner --redact --verbose` | archive checksum passed; 60 commits scanned; no leaks found |
+
+### Discrimination sensor
+
+Three behavior-level faults were injected only into isolated throwaway worktrees. The
+real source-tree porcelain matched its baseline afterward.
+
+| Mutation | Targeted command | Result |
+| --- | --- | --- |
+| Added `push:` beside `workflow_dispatch` in `.github/workflows/tests.yml` | `tests/test_ci_pinado.py::test_workflows_sao_apenas_fallback_manual_e_matriz_cobre_windows` | Killed: assertion at `tests/test_ci_pinado.py:174` rejected the trigger |
+| Removed the required local Bandit command from `README.md` | `tests/test_operational_audit.py::test_current_checkout_is_a_complete_local_ten` | Killed: local score fell to 9.0 |
+| Removed the structured-evidence category from the operational audit | `tests/test_operational_audit.py::test_current_checkout_is_a_complete_local_ten` | Killed: local score fell to 9.0 |
+
+**Sensor result**: 3/3 killed; PASS. No specification-precision gap or surviving
+mutation was found, so no lesson entry was created.
