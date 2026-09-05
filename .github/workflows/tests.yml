@@ -12,23 +12,18 @@ name: tests
 # Matriz enxuta (herdada da PR Caio-MOR/Cakopit#14): macOS custa 10x o minuto do
 # ubuntu, sem rodar em todo push. Ele sai deste workflow e vira `tests-macos.yml`,
 # semanal — continua sendo verificado, só que não a cada commit. Em PR a matriz de
-# suíte segue ubuntu+windows (o par que pega os dois bugs citados acima); em push
+# suíte e na fila de merge segue ubuntu+windows (o par que pega os dois bugs citados
+# acima); em push
 # direto na main (sem PR — ex.: merge de squash) só ubuntu roda, porque windows já
 # rodou na PR que originou o commit. `lint-routers` é stdlib pura e independe de SO:
 # uma plataforma basta.
 
 on:
   pull_request:
-    paths-ignore:
-      - '.claude-memory/**'
-      - 'audits/**'
-      - '**/logs/**'
   push:
     branches: [main]
-    paths-ignore:
-      - '.claude-memory/**'
-      - 'audits/**'
-      - '**/logs/**'
+  # Required checks must materialize before a merge-queue merge.
+  merge_group:
 
 permissions:
   contents: read
@@ -45,11 +40,14 @@ jobs:
       # fail-fast: false para ver os veredictos de todos os SOs da rodada.
       fail-fast: false
       matrix:
-        os: ${{ fromJSON(github.event_name == 'pull_request' && '["ubuntu-latest","windows-latest"]' || '["ubuntu-latest"]') }}
+        os: ${{ fromJSON((github.event_name == 'pull_request' || github.event_name == 'merge_group') && '["ubuntu-24.04","windows-2025"]' || '["ubuntu-24.04"]') }}
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
 
       - name: Python (versão do .python-version)
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -58,7 +56,7 @@ jobs:
           cache: pip
 
       - name: Dependências (só requirements.txt)
-        run: pip install -r requirements.txt
+        run: python -m pip install --require-hashes -r requirements.txt
 
       # O veredito, e não `pytest -q` direto: quem julga a suíte não pode ser o
       # próprio pytest. Ele roda a guarda de conteúdo (AST), o canário e a suíte em
@@ -70,11 +68,14 @@ jobs:
 
   lint-routers:
     name: lint-de-routers
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
 
       # O lint é stdlib pura: não depende de SO, roda numa plataforma só.
       - name: Python (versão do .python-version)
@@ -82,18 +83,21 @@ jobs:
         with:
           python-version-file: .python-version
 
+      - name: Dependências travadas
+        run: python -m pip install --require-hashes -r requirements.txt
+
       - name: Lint de routers (referências × índice git)
         run: python tools/lint_routers.py
 
       # A régua do padrão ouro, no repo-template: placeholders permitidos. No repo
-      # instanciado, troque por `python tools/padrao_ouro_audit.py .` (sem --template).
       - name: Auditor do padrão ouro
-        run: python tools/padrao_ouro_audit.py --tipo cockpit --template .
+        run: python tools/padrao_ouro_audit.py --tipo cockpit .
 
-      # Pin exato (não a action de terceiro `ruff-action`): versão previsível,
-      # sem depender de uma tag móvel de outro repo.
-      - name: Instalar ruff
-        run: pip install ruff==0.16.6
+      - name: Política vendor-neutral de segredos
+        run: python tools/policy_check.py .
+
+      - name: Auditor operacional
+        run: python tools/operational_audit.py .
 
       - name: Lint de estilo (ruff)
         run: ruff check .

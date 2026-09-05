@@ -137,9 +137,9 @@ T1 -> T2 -> T3 -> T4 -> T5 -> T6 -> T7 -> T8
 
 **Done when**:
 
-- [ ] `python3 -m pip install --require-hashes -r requirements.txt` succeeds in a clean environment.
-- [ ] CI uses SHA-pinned actions with persisted checkout credentials disabled and invokes `gate_veredito.py`, router lint, policy check, operational audit, and gold audit template mode.
-- [ ] No workflow targets a self-hosted runner and no `.gitleaksignore` is tracked.
+- [x] `python3 -m pip install --require-hashes -r requirements.txt` succeeds in a clean environment.
+- [x] CI uses SHA-pinned actions with persisted checkout credentials disabled and invokes `gate_veredito.py`, router lint, policy check, operational audit, and gold audit template mode.
+- [x] No workflow targets a self-hosted runner and no `.gitleaksignore` is tracked.
 
 **Tests**: declarative
 **Gate**: `python3 -m pip install --require-hashes -r requirements.txt && python3 -m pytest tests/test_ci_pinado.py -q`

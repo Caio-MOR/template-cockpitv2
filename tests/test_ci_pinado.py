@@ -18,6 +18,7 @@ from pathlib import Path
 RAIZ = Path(__file__).resolve().parent.parent
 SETTINGS = RAIZ / ".claude" / "settings.json"
 REQUIREMENTS = RAIZ / "requirements.txt"
+REQUIREMENTS_IN = RAIZ / "requirements.in"
 TOOLS = RAIZ / "tools"
 WORKFLOWS = sorted((RAIZ / ".github" / "workflows").glob("*.y*ml"))
 
@@ -77,6 +78,22 @@ def _pares_usados(texto: str) -> set:
     }
 
 
+def _blocos_de_jobs(texto: str) -> list[str]:
+    """Retorna blocos de jobs de primeiro nível, sem depender de um parser YAML."""
+    linhas = texto.splitlines()
+    inicio_jobs = next((i for i, linha in enumerate(linhas) if linha == "jobs:"), None)
+    if inicio_jobs is None:
+        return []
+    inicios = [
+        i for i in range(inicio_jobs + 1, len(linhas))
+        if re.match(r"^  [A-Za-z0-9_-]+:\s*$", linhas[i])
+    ]
+    return [
+        "\n".join(linhas[inicio:fim])
+        for inicio, fim in zip(inicios, inicios[1:] + [len(linhas)])
+    ]
+
+
 # ---------------------------------------------------------------- workflows reais
 
 
@@ -105,6 +122,138 @@ def test_todo_workflow_declara_permissions_contents_read():
     assert not faltando, (
         "workflow sem `permissions:` de topo com `contents: read`: " + ", ".join(faltando)
     )
+
+
+def test_todo_checkout_desativa_credenciais_e_define_profundidade():
+    """O token não pode ficar no `.git/config` depois de executar o checkout.
+
+    Todos os checkouts devem ser rasos por padrão; a única exceção deliberada é
+    o gitleaks, que precisa da história inteira para detectar segredos antigos.
+    """
+    problemas = []
+    for wf in WORKFLOWS:
+        texto = wf.read_text(encoding="utf-8")
+        checkouts = texto.count("uses: actions/checkout@")
+        credenciais = texto.count("persist-credentials: false")
+        if checkouts != credenciais:
+            problemas.append(f"{wf.name}: cada checkout precisa de persist-credentials: false")
+        if wf.name in {"gitleaks.yml", "self-hosted-required.yml"}:
+            if "fetch-depth: 0" not in texto:
+                problemas.append("gitleaks.yml: scan de história exige fetch-depth: 0")
+        elif checkouts and texto.count("fetch-depth: 1") != checkouts:
+            problemas.append(f"{wf.name}: checkout de CI deve usar fetch-depth: 1")
+    assert problemas == [], "\n".join(problemas)
+
+
+def test_python_e_runners_sao_reprodutiveis():
+    """Patch de Python e imagens de runner são contratos, não defaults móveis."""
+    versao = (RAIZ / ".python-version").read_text(encoding="utf-8").strip()
+    assert re.fullmatch(r"3\.12\.\d+", versao), ".python-version precisa conter patch exato"
+    problemas = []
+    for wf in WORKFLOWS:
+        texto = wf.read_text(encoding="utf-8")
+        if re.search(r"^\s*runs-on:\s*[^\n]*-latest\b", texto, re.MULTILINE):
+            problemas.append(f"{wf.name}: runs-on não pode usar label móvel *-latest")
+        blocos = _blocos_de_jobs(texto)
+        if not blocos:
+            problemas.append(f"{wf.name}: nenhum job encontrado")
+        for bloco in blocos:
+            if "timeout-minutes:" not in bloco:
+                nome = bloco.splitlines()[0].strip().rstrip(":")
+                problemas.append(f"{wf.name}/{nome}: job sem timeout-minutes")
+    assert problemas == [], "\n".join(problemas)
+
+
+def test_merge_group_e_lint_macos_estao_cobertos():
+    """A fila de merge precisa dos checks exigíveis e macOS não pode pular Ruff."""
+    exigiveis = ("tests.yml", "security.yml", "gitleaks.yml")
+    for nome in exigiveis:
+        ci = (RAIZ / ".github" / "workflows" / nome).read_text(encoding="utf-8")
+        assert re.search(r"^\s*merge_group:\s*$", ci, re.MULTILINE), nome
+    matriz = (RAIZ / ".github" / "workflows" / "tests.yml").read_text(encoding="utf-8")
+    assert "github.event_name == 'merge_group'" in matriz
+    assert "windows-2025" in matriz
+    macos = (RAIZ / ".github" / "workflows" / "tests-macos.yml").read_text(encoding="utf-8")
+    assert "ruff check ." in macos
+
+
+def test_template_workflows_do_not_require_a_personal_runner():
+    """A public template cannot require a runner owned by its source repository."""
+    for workflow in (RAIZ / ".github" / "workflows").glob("*.yml"):
+        texto = workflow.read_text(encoding="utf-8")
+        assert "self-hosted" not in texto, workflow.name
+        assert "cakopit-codex" not in texto, workflow.name
+
+
+def test_download_de_gitleaks_falha_sem_conexao_tls_valida():
+    """Downloads do binário de segurança devem falhar fechado e exigir TLS moderno."""
+    texto = (RAIZ / ".github" / "workflows" / "gitleaks.yml").read_text(encoding="utf-8")
+    for opcao in ("--fail", "--proto '=https'", "--tlsv1.2", "--location"):
+        assert opcao in texto, f"gitleaks.yml sem opção curl obrigatória: {opcao}"
+
+
+def test_instalacoes_de_pip_usam_somente_o_lock_com_hashes():
+    """Nenhum workflow pode reintroduzir instalação sem `--require-hashes`."""
+    problemas = []
+    for wf in WORKFLOWS:
+        for numero, linha in enumerate(wf.read_text(encoding="utf-8").splitlines(), 1):
+            if re.search(r"\bpip\s+install\b", linha) and (
+                "--require-hashes" not in linha or "requirements.txt" not in linha
+            ):
+                problemas.append(f"{wf.name}:{numero} instalação não usa lock com hashes")
+    assert problemas == [], "\n".join(problemas)
+
+
+def test_seguranca_estatica_e_dependencias_rodam_sem_ghas():
+    """O repo privado precisa de gates locais que não dependam de GitHub Code Security."""
+    texto = (RAIZ / ".github" / "workflows" / "security.yml").read_text(encoding="utf-8")
+    assert "pip-audit --strict --progress-spinner off" in texto
+    assert "bandit --quiet --recursive --severity-level medium --confidence-level medium" in texto
+    assert "dependency-review-action" not in texto
+    assert "github/codeql-action" not in texto
+
+
+def test_lock_de_dependencias_tem_versoes_e_hashes_exatos():
+    """Cada distribuição do lock precisa ser reprodutível e verificável."""
+    linhas = REQUIREMENTS.read_text(encoding="utf-8").splitlines()
+    entradas = []
+    atual = None
+    for linha in linhas:
+        if linha and not linha.startswith((" ", "\t", "#")):
+            if RE_NOME_DE_PACOTE.match(linha) and "==" in linha:
+                atual = [linha]
+                entradas.append(atual)
+                continue
+        if atual is not None:
+            atual.append(linha)
+    assert entradas, "requirements.txt sem entradas pinadas"
+    problemas = []
+    for entrada in entradas:
+        cabecalho = entrada[0]
+        nome = cabecalho.split("==", 1)[0]
+        if not re.match(r"^[A-Za-z0-9._-]+==[^\s\\]+", cabecalho):
+            problemas.append(f"{nome}: versão não é == exata")
+        if not any("--hash=sha256:" in linha for linha in entrada):
+            problemas.append(f"{nome}: sem hash sha256")
+    assert problemas == [], "\n".join(problemas)
+
+
+def test_lock_tem_arquivo_de_entradas_diretas():
+    """Atualizadores devem editar requisitos diretos e regenerar o lock."""
+    assert REQUIREMENTS_IN.exists(), "requirements.in é a fonte de dependências diretas"
+    entradas = [
+        linha.strip() for linha in REQUIREMENTS_IN.read_text(encoding="utf-8").splitlines()
+        if linha.strip() and not linha.lstrip().startswith("#")
+    ]
+    assert entradas
+    assert all(re.match(r"^[A-Za-z0-9._-]+(?:[<>=!~].*)?$", entry) for entry in entradas)
+    lockados = {
+        re.match(r"^([A-Za-z0-9._-]+)==", linha).group(1).lower()
+        for linha in REQUIREMENTS.read_text(encoding="utf-8").splitlines()
+        if re.match(r"^([A-Za-z0-9._-]+)==", linha)
+    }
+    diretos = {re.match(r"^([A-Za-z0-9._-]+)", entry).group(1).lower() for entry in entradas}
+    assert diretos <= lockados, f"entradas diretas ausentes do lock: {sorted(diretos - lockados)}"
 
 
 def test_ci_chama_o_veredito_e_nao_o_pytest_direto():
@@ -161,11 +310,16 @@ def _imports_de_terceiro(arquivo: Path, locais: set[str]) -> set[str]:
 
 def _distribuicoes_declaradas() -> set[str]:
     nomes: set[str] = set()
-    for linha in REQUIREMENTS.read_text(encoding="utf-8").splitlines():
+    # requirements.in é a fonte de entradas diretas; o lock inclui transitive
+    # (como requests), que não devem mascarar uma importação nova dos tools.
+    fonte = REQUIREMENTS_IN if REQUIREMENTS_IN.exists() else REQUIREMENTS
+    for linha in fonte.read_text(encoding="utf-8").splitlines():
         sem_comentario = linha.split("#")[0].strip()
-        casado = RE_NOME_DE_PACOTE.match(sem_comentario)
+        if not sem_comentario:
+            continue
+        casado = re.fullmatch(r"([A-Za-z0-9._-]+)(?:[<>=!~].*)?", sem_comentario)
         if casado:
-            nomes.add(casado.group(0).lower())
+            nomes.add(casado.group(1).lower())
     return nomes
 
 
@@ -178,7 +332,7 @@ def test_toda_dependencia_externa_de_tools_declarada_no_requirements():
     tinha o pacote instalado por outro caminho.
     """
     declaradas = _distribuicoes_declaradas()
-    locais = {f.stem for f in TOOLS.glob("*.py")}
+    locais = {f.stem for f in TOOLS.glob("*.py")} | {"tools"}
     faltando = []
     for arquivo in sorted(TOOLS.glob("*.py")):
         for modulo in sorted(_imports_de_terceiro(arquivo, locais)):

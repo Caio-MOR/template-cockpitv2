@@ -18,11 +18,14 @@ permissions:
 jobs:
   testes:
     name: suite-pytest
-    runs-on: macos-latest
+    runs-on: macos-14
     timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
 
       - name: Python (versão do .python-version)
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -31,28 +34,42 @@ jobs:
           cache: pip
 
       - name: Dependências (só requirements.txt)
-        run: pip install -r requirements.txt
+        run: python -m pip install --require-hashes -r requirements.txt
 
       - name: Veredito dos gates (guarda de conteúdo + canário + suíte)
         run: python tools/gate_veredito.py
 
   lint-routers:
     name: lint-de-routers
-    runs-on: macos-latest
+    runs-on: macos-14
     timeout-minutes: 5
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
 
       - name: Python (versão do .python-version)
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version-file: .python-version
 
+      - name: Dependências travadas
+        run: python -m pip install --require-hashes -r requirements.txt
+
       - name: Lint de routers (referências × índice git)
         run: python tools/lint_routers.py
 
       # A régua do padrão ouro, no repo-template: placeholders permitidos. No repo
-      # instanciado, troque por `python tools/padrao_ouro_audit.py .` (sem --template).
       - name: Auditor do padrão ouro
-        run: python tools/padrao_ouro_audit.py --tipo cockpit --template .
+        run: python tools/padrao_ouro_audit.py --tipo cockpit .
+
+      - name: Política vendor-neutral de segredos
+        run: python tools/policy_check.py .
+
+      - name: Auditor operacional
+        run: python tools/operational_audit.py .
+
+      - name: Lint de estilo (ruff)
+        run: ruff check .
