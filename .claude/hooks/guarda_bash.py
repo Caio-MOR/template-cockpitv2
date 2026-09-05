@@ -10,8 +10,8 @@ Bloqueia (exit 2, motivo em pt-BR no stderr):
   c) qualquer comando com `--no-verify`.
   d) `git push` cujo destino explícito é `main`/`master`.
 
-Falha aberta: qualquer exceção interna sai com exit 0 e aviso no stderr — um hook
-que trava por bug próprio não pode travar quem não sabe depurar hook.
+Falha fechada: entrada inválida ou exceção interna sai com exit 2. Um hook que não
+conseguiu validar o comando não deve liberar uma operação potencialmente destrutiva.
 """
 import json
 import re
@@ -35,26 +35,49 @@ def _branch_atual(cwd: str):
 
 
 def _e_git_commit(cmd: str) -> bool:
-    return bool(re.search(r"(?<![\w-])git\s+commit\b", cmd))
+    return any(subcommand == "commit" for subcommand, _ in _git_subcommands(cmd))
 
 
 def _e_git_push(cmd: str) -> bool:
-    return bool(re.search(r"(?<![\w-])git\s+push\b", cmd))
+    return any(subcommand == "push" for subcommand, _ in _git_subcommands(cmd))
 
 
 def _tem_flag_force(cmd: str) -> bool:
-    return bool(re.search(r"(?<!\S)(--force(-with-lease)?|-f)(?!\S)", cmd))
+    # Git accepts repeated short options (``-ff``); be conservative about all
+    # ``-f`` spellings and about an option assignment.  The caller only applies
+    # this to an identified git push invocation.
+    return bool(re.search(r"(?<!\S)(--force(?:-with-lease)?(?:=\S+)?|-f+)(?=\s|$)", cmd))
 
 
 def _tem_no_verify(cmd: str) -> bool:
     return "--no-verify" in cmd
 
 
+_GIT_SUBCOMMAND = re.compile(
+    r"(?<![\w-])git(?:\s+\S+)*?\s+(?P<subcommand>commit|push)\b(?P<rest>.*)"
+)
+
+
+def _git_subcommands(cmd: str) -> list[tuple[str, str]]:
+    """Find git commit/push even when global options precede the subcommand.
+
+    Commands are inspected one shell clause at a time so a separator cannot make
+    an unrelated token look like a git option.  Unknown pre-subcommand tokens are
+    intentionally accepted here: conservative enforcement is preferable to
+    allowing a dangerous invocation such as ``git -C repo push --force``.
+    """
+    found: list[tuple[str, str]] = []
+    for trecho in re.split(r"&&|\|\||[;\n]", cmd):
+        match = _GIT_SUBCOMMAND.search(trecho)
+        if match:
+            found.append((match.group("subcommand"), match.group("rest")))
+    return found
+
+
 def _push_destino_main_ou_master(cmd: str) -> bool:
-    for trecho in re.split(r"&&|\|\||;", cmd):
-        if not _e_git_push(trecho):
+    for subcommand, resto in _git_subcommands(cmd):
+        if subcommand != "push":
             continue
-        resto = re.sub(r"^.*?(?<![\w-])git\s+push\b", "", trecho, count=1)
         if re.search(r"(?<![\w/-])(HEAD:)?(refs/heads/)?(main|master)(?![\w/-])", resto):
             return True
     return False
@@ -70,9 +93,17 @@ def _commit_em_main_ou_master(cmd: str, cwd: str) -> bool:
 def main() -> None:
     try:
         payload = json.load(sys.stdin)
-        tool_input = payload.get("tool_input", {}) or {}
-        cmd = tool_input.get("command", "") or ""
+        if not isinstance(payload, dict):
+            raise ValueError("payload não é um objeto JSON")
+        tool_input = payload.get("tool_input")
+        if not isinstance(tool_input, dict):
+            raise ValueError("tool_input ausente ou inválido")
+        cmd = tool_input.get("command")
+        if not isinstance(cmd, str) or not cmd.strip():
+            raise ValueError("command ausente ou inválido")
         cwd = payload.get("cwd") or "."
+        if not isinstance(cwd, str):
+            raise ValueError("cwd inválido")
 
         if _commit_em_main_ou_master(cmd, cwd):
             print(
@@ -109,9 +140,13 @@ def main() -> None:
         sys.exit(0)
     except SystemExit:
         raise
-    except Exception as exc:  # falha aberta: bug no hook não trava o leigo
-        print(f"guarda_bash: aviso, hook falhou aberto ({exc})", file=sys.stderr)
-        sys.exit(0)
+    except Exception:
+        print(
+            "Bloqueado: guarda_bash não conseguiu validar a solicitação "
+            "(entrada inválida ou erro interno).",
+            file=sys.stderr,
+        )
+        sys.exit(2)
 
 
 if __name__ == "__main__":

@@ -82,9 +82,9 @@ T1 -> T2 -> T3 -> T4 -> T5 -> T6 -> T7 -> T8
 
 **Done when**:
 
-- [ ] Hook tests reject direct main commits, force pushes, unsafe writes, bypasses, and recognizable synthetic secret patterns.
-- [ ] `.env.example` declares names only; no source file embeds a personal contact, runner, or gitleaks exception.
-- [ ] `python3 tools/policy_check.py .` prints only safe paths and pattern names on a synthetic violation.
+- [x] Hook tests reject direct main commits, force pushes, unsafe writes, bypasses, and recognizable synthetic secret patterns.
+- [x] `.env.example` declares names only; no source file embeds a personal contact, runner, or gitleaks exception.
+- [x] `python3 tools/policy_check.py .` prints only safe paths and pattern names on a synthetic violation.
 
 **Tests**: unit
 **Gate**: `python3 -m pytest tests/test_hooks.py -q`

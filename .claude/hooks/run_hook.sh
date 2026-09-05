@@ -7,6 +7,19 @@ script="$1"
 raiz="${CLAUDE_PROJECT_DIR:-.}"
 dir="$raiz/.claude/hooks"
 
+case "$script" in
+    guarda_bash.py|guarda_segredo.py) ;;
+    *)
+        echo "run_hook.sh: script de hook não permitido" >&2
+        exit 2
+        ;;
+esac
+
+if [ ! -d "$dir" ]; then
+    echo "run_hook.sh: diretório de hooks ausente" >&2
+    exit 2
+fi
+
 if [ -x "$raiz/.venv/bin/python" ]; then
     py="$raiz/.venv/bin/python"
 elif [ -x "$raiz/.venv/Scripts/python.exe" ]; then
@@ -16,8 +29,8 @@ elif command -v python3 >/dev/null 2>&1; then
 elif command -v python >/dev/null 2>&1; then
     py="python"
 else
-    echo "run_hook.sh: nenhum interpretador Python encontrado; hook desativado (falha aberta)" >&2
-    exit 0
+    echo "run_hook.sh: nenhum interpretador Python encontrado; operação bloqueada" >&2
+    exit 2
 fi
 
 exec "$py" "$dir/$script"
