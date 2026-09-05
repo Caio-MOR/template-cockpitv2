@@ -14,7 +14,7 @@ import validate_new_instance  # noqa: E402
 
 def _copy_template(tmp_path: Path) -> Path:
     instance = tmp_path / "instance"
-    shutil.copytree(RAIZ, instance, ignore=shutil.ignore_patterns(".git", ".venv", ".pytest_cache", "__pycache__"))
+    shutil.copytree(RAIZ, instance, ignore=shutil.ignore_patterns(".git", ".venv", ".pytest_cache", ".ruff_cache", ".tmp", "__pycache__"))
     return instance
 
 
@@ -65,10 +65,12 @@ def test_validator_rejects_build_records_and_placeholders_but_allows_later_files
 
 def test_initializer_preserves_custom_state_and_rejects_symlinked_targets(tmp_path):
     instance = _copy_template(tmp_path)
+    _add_v2_build_records(instance)
     state = instance / ".specs" / "STATE.md"
-    state.write_text("# STATE\n\n## Decisions\n\n- custom", encoding="utf-8")
+    state.write_text(initialize_template.TEMPLATE_STATE + "\n- custom", encoding="utf-8")
     assert initialize_template.initialize(instance, dry_run=False) == 1
     assert state.read_text(encoding="utf-8").endswith("custom")
+    assert (instance / ".specs" / "features" / "template-v2").is_dir()
 
     outside = tmp_path / "outside"
     outside.mkdir()

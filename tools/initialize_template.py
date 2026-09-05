@@ -20,8 +20,22 @@ Project-local decisions and handoff state begin here.
 ## Decisions
 
 ## Handoff snapshot
+
 """
-TEMPLATE_STATE_PREFIX = "# STATE\n\nLog de decisões do repo"
+TEMPLATE_STATE = """# STATE
+
+Log de decisões do repo (append-only) e snapshot de handoff. Uma decisão por item, com data e motivo — o porquê é o que a próxima sessão não consegue reconstruir sozinha.
+
+## Decisions
+
+<!-- Formato de cada entrada (uma por decisão, mais recente por último):
+- **AD-001 (AAAA-MM-DD):** o que foi decidido, em uma frase; o motivo em outra.
+  Quem decidiu (dono do repo em chat, agente por regra X) e o que fica em aberto.
+-->
+
+## Handoff snapshot
+
+"""
 
 
 def planned_paths(root: Path) -> list[Path]:
@@ -55,7 +69,7 @@ def initialize(root: Path, dry_run: bool) -> int:
     state = root / STATE
     if state.exists():
         current = state.read_text(encoding="utf-8")
-        if current != INITIAL_STATE and not current.startswith(TEMPLATE_STATE_PREFIX):
+        if current not in (INITIAL_STATE, TEMPLATE_STATE):
             print("initialize_template: existing project STATE is not template state", file=sys.stderr)
             return 1
     for relative in BUILD_RECORDS:
