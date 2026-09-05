@@ -104,8 +104,8 @@
 | TV2-02 | P1: Portable control baseline | Design | Pending |
 | TV2-03 | P1: Portable control baseline | Design | Pending |
 | TV2-04 | P1: Portable control baseline | Design | Pending |
-| TV2-05 | P1: Verifiable delivery | Design | Pending |
-| TV2-06 | P1: Verifiable delivery | Design | Pending |
+| TV2-05 | P1: Verifiable delivery | Execute | Verified |
+| TV2-06 | P1: Verifiable delivery | Execute | Verified |
 | TV2-07 | P2: Portable agent and eval conventions | Execute | Verified |
 | TV2-08 | P2: Portable agent and eval conventions | Execute | Verified |
 | TV2-09 | P1: Clean generated-instance bootstrap | Execute | Verified |

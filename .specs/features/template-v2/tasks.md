@@ -119,9 +119,9 @@ T1 -> T2 -> T3 -> T5 -> T6 -> T7 -> T8 -> T4
 
 **Done when**:
 
-- [ ] The v2 verdict file remains byte-identical to the source template version.
-- [ ] Measured collection and every required-gate minimum exactly match the final v2 suite.
-- [ ] The red canary fails, green canary passes, AST guard rejects an unauthorized pytest hook, and the real suite passes.
+- [x] The v2 verdict file remains byte-identical to the source template version.
+- [x] Measured collection and every required-gate minimum exactly match the final v2 suite.
+- [x] The red canary fails, green canary passes, AST guard rejects an unauthorized pytest hook, and the real suite passes.
 
 **Tests**: smoke and declarative
 **Gate**: `python3 tools/gate_veredito.py`
