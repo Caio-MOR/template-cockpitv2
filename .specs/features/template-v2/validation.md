@@ -2,7 +2,7 @@
 
 **Date**: 2026-09-05  
 **Spec**: `.specs/features/template-v2/spec.md`  
-**Diff range**: `main..59f37e87007981a5afd886624fca90b074ea7879`
+**Diff range**: `main..7c5690d3898f9430ddb57e92f90e55cebdf16cb0`
 **Verifier**: independent verifier (author != verifier)
 
 ## Validation
@@ -74,6 +74,12 @@ Commit `236cdef` addresses the Windows 2025 failure in which `actions/setup-pyth
 Commit `59f37e87007981a5afd886624fca90b074ea7879` removes the Windows use of `os.kill(pid, 0)`: on Windows this emits `CTRL_C_EVENT` to the shared console rather than providing the POSIX liveness probe. `_windows_process_state` uses `OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION)`, declares `HANDLE`/`DWORD` argument and result types, reads `GetExitCodeProcess`, and closes every non-null handle in `finally` (`tools/cockpit_runtime.py:42`, `tools/cockpit_runtime.py:58`, `tools/cockpit_runtime.py:67`). Only invalid PID (`ERROR_INVALID_PARAMETER`) is dead; access-denied, query failure, and unknown states return indeterminate, which `_pid_is_alive` treats as alive (`tools/cockpit_runtime.py:60`, `tools/cockpit_runtime.py:76`). POSIX retains `os.kill(pid, 0)` (`tools/cockpit_runtime.py:78`).
 
 `tests/test_cockpit_runtime.py:101`–`tests/test_cockpit_runtime.py:110` parameterizes live, dead, and indeterminate Windows process states and asserts no `os.kill` call. The focused test reported 3 passing cases and the full independent verdict reported 220 passing tests. A disposable-worktree mutation changing fail-closed indeterminate handling to dead was killed by `tests/test_cockpit_runtime.py:109`; the real worktree porcelain matched its baseline after cleanup.
+
+## Post-publication Windows Marker Re-verification
+
+Commit `7c5690d3898f9430ddb57e92f90e55cebdf16cb0` fixes the real Windows failure caused by calling `fsync` on a read-only `rb` descriptor, which returns `EBADF`. The marker is still written first, then reopened with writable binary access (`r+b`) for durable flush before the existing atomic `os.replace` (`workflows/_exemplo-rotina/scripts/rotina_exemplo.py:83`, `workflows/_exemplo-rotina/scripts/rotina_exemplo.py:89`). The workflow error contract documents the Windows-specific durable-marker failure without changing idempotency or rename semantics (`workflows/_exemplo-rotina/workflow.md:55`).
+
+Focused proof: `tests/test_rotina_exemplo_runtime.py:113` — `test_atomic_marker_fault_preserves_previous_marker` passed. The patch is limited to the writable flush descriptor and its workflow documentation.
 
 ## Scope and Quality
 
