@@ -193,9 +193,16 @@ def _anti_fraud(repo: Repo) -> list[Finding]:
     ini = repo.text("pytest.ini") or ""
     if "xfail_strict = true" not in ini:
         findings += _finding(check, "pytest.ini", "non-strict xfail would hide regressions")
-    workflows = "\n".join(repo.text(path) or "" for path in repo.paths(".github/workflows/"))
-    if "tools/gate_veredito.py" not in workflows:
-        findings += _finding(check, ".github/workflows/", "CI does not invoke the independent verdict")
+    readme = repo.text("README.md") or ""
+    for command in (
+        "python tools/gate_veredito.py",
+        "python tools/lint_routers.py",
+        "python tools/operational_audit.py .",
+        "python tools/padrao_ouro_audit.py --tipo cockpit .",
+        "ruff check .",
+    ):
+        if command not in readme:
+            findings += _finding(check, "README.md", f"local contract omits {command}")
     return findings
 
 
@@ -218,9 +225,15 @@ def _security(repo: Repo) -> list[Finding]:
         findings += _finding(check, ".claude/settings.json", "editor policy does not deny secret files and commands")
     if not _has(repo, "SECURITY.md", "revoke", "replace", "secret"):
         findings += _finding(check, "SECURITY.md", "security policy lacks rotation guidance")
+    readme = repo.text("README.md") or ""
+    for command in (
+        "python tools/policy_check.py .",
+        "bandit --quiet --recursive --severity-level medium --confidence-level medium tools workflows",
+        "gitleaks detect --source . --no-banner --redact --verbose",
+    ):
+        if command not in readme:
+            findings += _finding(check, "README.md", f"local contract omits {command}")
     workflows = "\n".join(repo.text(path) or "" for path in repo.paths(".github/workflows/"))
-    if "tools/policy_check.py" not in workflows:
-        findings += _finding(check, ".github/workflows/", "vendor-neutral policy is not enforced in CI")
     if "paths-ignore:" in workflows:
         findings += _finding(check, ".github/workflows/", "path-only changes can bypass a required workflow")
     return findings
@@ -265,8 +278,9 @@ def _supply_chain(repo: Repo) -> list[Finding]:
             findings += _finding(check, path, "workflow action is not pinned to a commit SHA")
         if "pip install" in text and "--require-hashes" not in text:
             findings += _finding(check, path, "pip install does not require lock hashes")
-    if "pip-audit" not in "\n".join(repo.text(path) or "" for path in repo.paths(".github/workflows/")):
-        findings += _finding(check, ".github/workflows/", "dependency vulnerability audit is absent")
+    readme = repo.text("README.md") or ""
+    if "pip-audit --strict --progress-spinner off" not in readme:
+        findings += _finding(check, "README.md", "local dependency vulnerability audit is absent")
     return findings
 
 

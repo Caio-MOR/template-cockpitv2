@@ -6,7 +6,7 @@
 
 ## Goals
 
-- [ ] Give every repository generated from v2 deterministic local and CI validation for its portable controls.
+- [ ] Give every repository generated from v2 deterministic local validation and optional manual hosted fallbacks for its portable controls.
 - [ ] Keep the agent delegation policy portable and able to choose an inexpensive Codex worker when available.
 - [ ] Prove a newly generated instance starts clean and passes its bootstrap validation without private configuration.
 
@@ -28,6 +28,7 @@
 | Delegation | Codex delegation is opt-in; when model selection supports `gpt-5.6-luna`, use it for bounded mechanical work, otherwise use the harness default or work inline and keep the main session accountable | Cheap delegation must be possible without making a specific harness or model available. | yes |
 | Eval runner | Keep plugin-repository ownership, pin the immutable canonical commit supplied by its pending upstream change, and enforce the documented synchronization contract | A copied runner must not silently become a competing source of truth or copy an unmerged local instance. | yes |
 | Bootstrap cleanup | Generated instances remove or archive v2-build feature records before their first project feature | Build planning is review evidence, not template user history. | yes |
+| Local-first verification | Run all gates on the user's chosen computer or local environment; hosted workflows are manual fallbacks and GitHub Actions must not run automatically | The owner chose to avoid hosted Actions minutes while retaining reproducible optional fallbacks. | yes, 2026-09-05 |
 
 **Open questions:** none - all resolved or logged above.
 
@@ -49,19 +50,19 @@
 
 **Independent Test**: Create a clean generated instance, run doctor, policy check, operational audit, both relevant gold-audit modes, router lint, and the external verdict; then introduce a synthetic policy violation and observe the policy check fail.
 
-### P1: Verifiable delivery
+### P1: Local-first verifiable delivery
 
-**User Story**: As a contributor, I want the validation suite and CI to judge the controls independently so that weakened tests or platform drift cannot pass unnoticed.
+**User Story**: As a contributor, I want the local validation suite to judge controls independently and optional hosted fallbacks to remain reproducible, so that weakened tests or platform drift cannot pass unnoticed without consuming Actions minutes automatically.
 
 **Why P1**: Controls without an independent verdict are only documentation.
 
 **Acceptance Criteria**:
 
 1. WHEN the full suite runs THEN `python tools/gate_veredito.py` SHALL pass only after its independent guards, canaries, and pytest suite pass.
-2. WHEN CI runs for a push, pull request, or merge group THEN it SHALL install only the hash-locked dependency set and execute the external verdict, router lint, policy check, operational audit, and the template-mode gold audit.
-3. WHILE a workflow definition uses a third-party action THEN the workflow SHALL pin that action to an approved full commit SHA and disable persisted checkout credentials.
+2. BEFORE delivery, an agent SHALL run the documented verdict, router lint, policy, operational, gold, style, dependency, static-security, and full-history secret checks in the user's chosen local environment; it SHALL record the commit, operating system, Python version, and result for every command, and SHALL block delivery when any command is unavailable or fails.
+3. WHEN a hosted workflow exists THEN it SHALL use only `workflow_dispatch`, retain the hash-locked dependency set and independent checks, and SHALL pin every third-party action to an approved full commit SHA with persisted checkout credentials disabled.
 
-**Independent Test**: Run the verdict locally and inspect workflow tests that reject direct pytest CI calls, mutable action references, and unpinned dependencies.
+**Independent Test**: Run the verdict locally and inspect workflow tests that reject automatic triggers, direct pytest fallback calls, mutable action references, and unpinned dependencies.
 
 ### P2: Portable agent and eval conventions
 
@@ -116,5 +117,5 @@
 
 - [ ] Template mode reports operational 10.0/10.0 and gold 10.0/10; an initialized instance reports the same scores without gold template mode.
 - [ ] A clean generated instance passes `doctor`, `policy_check`, `operational_audit`, `lint_routers`, and `gate_veredito`.
-- [ ] Every portable control has an outcome-focused test and CI invokes the external verdict.
+- [ ] Every portable control has an outcome-focused test, and the local contract invokes the external verdict.
 - [ ] Bootstrap validation rejects private-instance artifacts and accepts the prepared clean instance.

@@ -1,29 +1,14 @@
 name: tests
 
-# Gate mecânico do repo: o veredito da suíte e o lint de routers rodam em todo push
-# na main e toda PR — a verificação deixa de depender de memória humana.
+# Fallback hospedado opcional: o template exige a execução local escolhida pelo
+# mantenedor. Este workflow só consome minutos quando o dono o dispara.
 # Um workflow por preocupação (o de segredos é o gitleaks.yml).
 #
-# Por que a matriz de SO: gate que só roda num SO é gate PRESUMIDO, não verificado.
-# Cada plataforma produz achado que as outras não pegam (CRLF + shebang que só quebra
-# no Windows; `Path.is_absolute()` que é no-op fora dele). `gitleaks.yml` fica fora da
-# matriz de propósito: varre conteúdo do histórico, não comportamento de plataforma.
-#
-# Matriz enxuta: macOS custa 10x o minuto do
-# ubuntu, sem rodar em todo push. Ele sai deste workflow e vira `tests-macos.yml`,
-# semanal — continua sendo verificado, só que não a cada commit. Em PR a matriz de
-# suíte e na fila de merge segue ubuntu+windows (o par que pega os dois bugs citados
-# acima); em push
-# direto na main (sem PR — ex.: merge de squash) só ubuntu roda, porque windows já
-# rodou na PR que originou o commit. `lint-routers` é stdlib pura e independe de SO:
-# uma plataforma basta.
+# Um despacho deliberado cobre Linux e Windows. O fallback de macOS permanece em
+# `tests-macos.yml`; a verificação local define quais plataformas são obrigatórias.
 
 on:
-  pull_request:
-  push:
-    branches: [main]
-  # Required checks must materialize before a merge-queue merge.
-  merge_group:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -40,7 +25,7 @@ jobs:
       # fail-fast: false para ver os veredictos de todos os SOs da rodada.
       fail-fast: false
       matrix:
-        os: ${{ fromJSON((github.event_name == 'pull_request' || github.event_name == 'merge_group') && '["ubuntu-24.04","windows-2025"]' || '["ubuntu-24.04"]') }}
+        os: [ubuntu-24.04, windows-2025]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout

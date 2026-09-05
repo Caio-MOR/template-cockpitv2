@@ -165,14 +165,15 @@ def test_python_e_runners_sao_reprodutiveis():
     assert problemas == [], "\n".join(problemas)
 
 
-def test_merge_group_e_lint_macos_estao_cobertos():
-    """A fila de merge precisa dos checks exigíveis e macOS não pode pular Ruff."""
-    exigiveis = ("tests.yml", "security.yml", "gitleaks.yml")
-    for nome in exigiveis:
-        ci = (RAIZ / ".github" / "workflows" / nome).read_text(encoding="utf-8")
-        assert re.search(r"^\s*merge_group:\s*$", ci, re.MULTILINE), nome
+def test_workflows_sao_apenas_fallback_manual_e_matriz_cobre_windows():
+    """O template não pode gastar minutos por evento automático nem degradar o fallback."""
+    proibidos = ("pull_request:", "push:", "merge_group:", "schedule:")
+    for workflow in WORKFLOWS:
+        ci = workflow.read_text(encoding="utf-8")
+        assert re.search(r"^\s*workflow_dispatch:\s*$", ci, re.MULTILINE), workflow.name
+        assert not any(gatilho in ci for gatilho in proibidos), workflow.name
     matriz = (RAIZ / ".github" / "workflows" / "tests.yml").read_text(encoding="utf-8")
-    assert "github.event_name == 'merge_group'" in matriz
+    assert "ubuntu-24.04" in matriz
     assert "windows-2025" in matriz
     macos = (RAIZ / ".github" / "workflows" / "tests-macos.yml").read_text(encoding="utf-8")
     assert "ruff check ." in macos

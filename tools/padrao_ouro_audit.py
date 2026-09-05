@@ -217,9 +217,21 @@ def chk_b02(repo, tipo, template):
 
 
 def chk_c01(repo, tipo, template):
-    if repo.workflows_ci():
+    texto = repo.texto("README.md") or ""
+    comandos = (
+        "python tools/gate_veredito.py",
+        "python tools/lint_routers.py",
+        "python tools/policy_check.py .",
+        "python tools/operational_audit.py .",
+        "python tools/padrao_ouro_audit.py --tipo cockpit .",
+        "ruff check .",
+        "pip-audit --strict --progress-spinner off",
+        "bandit --quiet --recursive --severity-level medium --confidence-level medium tools workflows",
+        "gitleaks detect --source . --no-banner --redact --verbose",
+    )
+    if all(comando in texto for comando in comandos):
         return []
-    return [Reprovacao("PO-C01", ".github/workflows/", "nenhum workflow `.yml`/`.yaml`")]
+    return [Reprovacao("PO-C01", "README.md", "contrato de verificação local incompleto")]
 
 
 def chk_c02(repo, tipo, template):
@@ -244,9 +256,9 @@ def chk_c02(repo, tipo, template):
 
 
 def chk_c03(repo, tipo, template):
-    if any("gitleaks" in (repo.texto(wf) or "") for wf in repo.workflows_ci()):
+    if "gitleaks detect --source . --no-banner --redact --verbose" in (repo.texto("README.md") or ""):
         return []
-    return [Reprovacao("PO-C03", ".github/workflows/", "nenhum workflow cita gitleaks")]
+    return [Reprovacao("PO-C03", "README.md", "contrato local não cita gitleaks")]
 
 
 def chk_d01(repo, tipo, template):
@@ -362,10 +374,10 @@ def chk_k03(repo, tipo, template):
 def chk_k04(repo, tipo, template):
     out = [Reprovacao("PO-K04", f, "não existe")
            for f in ("tools/gate_veredito.py", "tools/lint_routers.py") if not repo.existe(f)]
-    cita = any("gate_veredito.py" in (repo.texto(w) or "") and "lint_routers.py" in (repo.texto(w) or "")
-               for w in repo.workflows_ci())
+    texto = repo.texto("README.md") or ""
+    cita = "gate_veredito.py" in texto and "lint_routers.py" in texto
     if not cita:
-        out.append(Reprovacao("PO-K04", ".github/workflows/", "nenhum workflow chama gate_veredito.py e lint_routers.py"))
+        out.append(Reprovacao("PO-K04", "README.md", "contrato local não chama gate_veredito.py e lint_routers.py"))
     return out
 
 

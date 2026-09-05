@@ -1,15 +1,9 @@
 name: tests-macos
 
-# Verificação semanal em macOS (herdada da PR Caio-MOR/Cakopit#14): o macOS saiu da
-# matriz de `tests.yml` porque custava 10x o minuto do ubuntu, sem rodar em todo push.
-# Ele não desaparece — vira gate agendado, porque "só roda num SO" é gate presumido
-# (achado real de outro cockpit: `Path.is_absolute()` no-op fora do Windows).
-# Mesma suíte + lint de `tests.yml`, só que na cadência de uma vez por semana em vez
-# de a cada commit.
+# Fallback hospedado opcional para macOS. A verificação obrigatória é local, no
+# sistema escolhido pelo mantenedor; este workflow só roda por despacho explícito.
 
 on:
-  schedule:
-    - cron: '0 9 * * 1' # segunda-feira, 09:00 UTC
   workflow_dispatch:
 
 permissions:

@@ -34,9 +34,9 @@ Exit 0 = placar ≥ 9; 1 = placar < 9; 2 = tipo não detectado ou raiz inexisten
 | PO-A04 | todos | 0,5 | Receita de ambiente escrita | `README.md` tem um título `##` contendo "Ambiente" ou "Como rodar" |
 | PO-B01 | todos | 0,5 | Regras modulares, fora do arquivo principal | `.claude/rules/` contém ao menos um `.md` |
 | PO-B02 | todos | 0,5 | Autor nunca é o verificador | `.claude/agents/verificador.md` existe |
-| PO-C01 | todos | 1 | Verificação roda sem depender de memória humana | ao menos um arquivo em `.github/workflows/*.yml` ou `*.yaml` |
-| PO-C02 | todos | 1 | CI não confia em tag móvel nem em permissão implícita | em todo workflow, cada `uses:` termina em `@` + 40 caracteres hexadecimais, e há uma chave `permissions:` no nível do workflow ou de cada job |
-| PO-C03 | todos | 1 | Segredo não entra no histórico sem alarme | algum workflow contém a palavra `gitleaks` |
+| PO-C01 | todos | 1 | Verificação local é executável sem depender de memória | `README.md` contém o contrato local e os comandos de evidência |
+| PO-C02 | todos | 1 | Fallback hospedado não confia em tag móvel nem em permissão implícita | em todo workflow, cada `uses:` termina em `@` + 40 caracteres hexadecimais, e há uma chave `permissions:` no nível do workflow ou de cada job |
+| PO-C03 | todos | 1 | Segredo não entra no histórico sem alarme | o contrato local em `README.md` contém a varredura `gitleaks` |
 | PO-D01 | todos | 0,5 | Decisões sobrevivem à sessão | `.specs/STATE.md` existe |
 | PO-E01 | todos | 0,5 | O git versiona o que se libera, não o que se esquece de negar | `.gitignore` existe e a primeira regra não comentada é `/*` ou `*` (allowlist) |
 | PO-E02 | todos | 0,25 | Fim de linha não depende da máquina | `.gitattributes` contém `text=auto` |
@@ -47,7 +47,7 @@ Exit 0 = placar ≥ 9; 1 = placar < 9; 2 = tipo não detectado ou raiz inexisten
 | PO-K01 | cockpit | 1 | Cada categoria tem router local | `workflows/CLAUDE.md`, `tools/CLAUDE.md` e `docs/CLAUDE.md` existem |
 | PO-K02 | cockpit | 0,5 | Toda rotina nasce com grafo e formato declarado | todo `workflows/*/workflow.md` tem um bloco ```` ```mermaid ```` e uma linha `%% formato:` |
 | PO-K03 | cockpit | 0,5 | A suíte tem piso de coleta fora de `tests/` | `conftest.py` na raiz contém `PISO_COLETA`, e `tests/` tem ao menos um `test_*.py` |
-| PO-K04 | cockpit | 1 | Quem julga a suíte não é o pytest, e o router é lintado | `tools/gate_veredito.py` e `tools/lint_routers.py` existem, e algum workflow cita os dois |
+| PO-K04 | cockpit | 1 | Quem julga a suíte não é o pytest, e o router é lintado | `tools/gate_veredito.py` e `tools/lint_routers.py` existem, e o contrato local cita os dois |
 | PO-P01 | app | 0,5 | Variáveis de ambiente documentadas sem valor | `.env.example` existe |
 | PO-P02 | app | 1 | Tipo, teste e build são travas do CI | algum workflow tem passo com `tsc`, com `vitest`/`jest`/`pytest` e com `build` |
 | PO-S01 | skills | 1 | O repo é instalável como plugin | `.claude-plugin/marketplace.json` é JSON válido com a lista `plugins` não vazia |

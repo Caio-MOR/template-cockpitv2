@@ -40,7 +40,8 @@ se registra. Nunca guardar segredos.
 ## Segredos
 
 Ficam em `.env` (já ignorado pelo git) — nunca em código, log, commit ou
-mensagem. A varredura do CI reprova o que escapar.
+mensagem. A varredura local obrigatória reprova o que escapar; o fallback
+hospedado é opcional e manual.
 
 ## Entrega com evidência
 

@@ -13,8 +13,8 @@ graph TD
     A --> C[Doctor and policy check]
     A --> D[Operational audit]
     A --> J[Gold audit --template]
-    A --> E[External verdict]
-    E --> F[CI workflows]
+    A --> E[Local external verdict]
+    E --> F[Manual hosted fallbacks]
     A --> G[Bootstrap validator]
     G --> H[Clean project state]
     A --> I[Delegation and eval ownership rules]
@@ -95,3 +95,4 @@ graph TD
 | Delegation | Opt-in Codex capability with Luna only when the harness offers it; otherwise use the harness default or inline execution | Users can save cost without requiring a single agent platform or model. |
 | Eval ownership | Plugin repository remains canonical and v2 pins the immutable supplied upstream commit | Ownership stays singular, auditable, and independent of an unmerged local copy. |
 | Freshness proof | Explicit, dry-run initialization plus read-only new-instance validator and temp-copy test | It proves a clean instance while limiting mutation to known build evidence. |
+| Verification execution | Local verification on the user's chosen environment is mandatory; hosted workflows are `workflow_dispatch` fallbacks only | It preserves deterministic checks and optional reproducibility without automatic Actions minutes. |

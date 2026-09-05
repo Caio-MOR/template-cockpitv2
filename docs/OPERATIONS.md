@@ -86,23 +86,25 @@ and resume only with a reviewed idempotency key.
 
 ## Maintenance cadence
 
-- Every pull request: verdict gate, routers, policy check, operational audit, dependency
-  vulnerability audit, Gitleaks, and Bandit static analysis.
-- Weekly: dependency/action update review and the macOS verification run. For Python
+- Every delivery: run the local verification contract in `README.md` and retain its
+  commit, operating system, Python version, and results with the review evidence.
+- Weekly: dependency/action update review. For Python
   updates, edit `requirements.in`, regenerate the universal hashed `requirements.txt`
   with the command recorded in its header, and review both files in the same pull request.
 - Monthly: credential inventory and failed-run review.
 - Quarterly: encrypted restore drill and GitHub ruleset review.
 - After any incident: immediate revocation/recovery exercise and a regression test.
 
-## CI execution
+## Verification execution
 
-This template uses hosted CI only. A generated repository may add a self-hosted runner
-after a repository-specific security review, but no personal runner, label, owner, or
-merge requirement belongs in the template.
+This template requires verification on the user's chosen local computer or environment.
+The hosted workflows are manual fallbacks only. An agent must not dispatch them or restore
+automatic triggers without the repository owner's explicit choice. A repository may change
+that policy after a repository-specific security and cost review, but no personal runner,
+label, owner, or hosted merge requirement belongs in the template.
 
 GitHub native secret scanning, CodeQL, and dependency review are currently unavailable
 for this private personal repository without GitHub Code Security/Secret Protection.
-Full-history Gitleaks, the vendor-neutral policy gate, local hooks, hash-locked installs,
+Full-history local Gitleaks, the vendor-neutral policy gate, local hooks, hash-locked installs,
 `pip-audit`, Bandit, Dependabot, and GitHub rules form the compensating controls. If the
 native features become available, enable them without removing those layers.

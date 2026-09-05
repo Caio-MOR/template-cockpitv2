@@ -49,6 +49,22 @@ def test_removing_a_control_lowers_the_score(path: str, replacement: str) -> Non
     assert any(not category.ok for category in result.categories)
 
 
+@pytest.mark.parametrize(
+    "command",
+    (
+        "ruff check .",
+        "gitleaks detect --source . --no-banner --redact --verbose",
+        "bandit --quiet --recursive --severity-level medium --confidence-level medium tools workflows",
+    ),
+)
+def test_missing_required_local_command_lowers_the_score(command: str) -> None:
+    readme = ROOT.joinpath("README.md").read_text(encoding="utf-8")
+    mutated = _repo_mutated("README.md", readme.replace(command, "", 1))
+    result = audit(mutated)
+    assert result.score < 10.0
+    assert any(finding.path == "README.md" and command in finding.message for finding in result.findings)
+
+
 def test_findings_are_path_only_and_no_secret_values_are_echoed() -> None:
     repo = _repo_mutated(".gitignore", "real-secret-value\n")
     result = audit(repo)

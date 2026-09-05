@@ -25,14 +25,20 @@ uv pip install -r requirements.txt
 
 ou `python3.12.13 -m venv .venv && .venv/bin/python -m pip install -r requirements.txt`.
 
-## Verificar
+## Verificar localmente
 
-Os mesmos comandos do CI (`.github/workflows/tests.yml`), rodados com o Python do `.venv`:
+Run these commands on the user's chosen computer or local environment before delivery. Record the commit, operating system, Python version, and result for every command. A missing tool or a failed command blocks the delivery; do not report a substitute or assumed pass.
 
 - `python tools/gate_veredito.py` — esperado `veredito: VERDE` (guarda de conteúdo + canário + suíte).
 - `python tools/lint_routers.py` — esperado `0 erro(s)`.
 - `python tools/doctor.py`, `python tools/policy_check.py .`, `python tools/operational_audit.py .`, `python tools/lint_routers.py` e `python tools/gate_veredito.py` — os cinco gates locais; todos precisam passar.
 - `python tools/padrao_ouro_audit.py --tipo cockpit .` — auditor do padrão ouro: placar 0–10 e a lista do que falta, com arquivo e linha. No template ele roda com `--template` (placeholders permitidos); no repo instanciado, sem a flag. Está no padrão quem mede 9 ou mais.
+- `ruff check .` — style gate.
+- `pip-audit --strict --progress-spinner off` — dependency vulnerability audit.
+- `bandit --quiet --recursive --severity-level medium --confidence-level medium tools workflows` — static security analysis.
+- `gitleaks detect --source . --no-banner --redact --verbose` — full-history secret scan. Install `gitleaks` locally first when it is absent, then run this exact command; do not replace it with an unverified scan.
+
+The four files in `.github/workflows/` are manual hosted fallbacks only. Do not dispatch them or restore push, pull-request, merge-queue, or schedule triggers unless the repository owner explicitly chooses hosted execution. Native GitHub secret scanning, push protection, and Dependabot alerts remain separate GitHub controls and do not consume Actions minutes.
 
 ## O que é cada peça e por quê
 
@@ -41,7 +47,7 @@ Os mesmos comandos do CI (`.github/workflows/tests.yml`), rodados com o Python d
 - `README.md` — porta de entrada humana; o lint confere as referências dele também, porque drift aqui envenena igual.
 - `.gitignore` em allowlist — o git versiona o que se libera, não o que se esquece de negar; arquivo novo nunca entra por acidente.
 - `.gitattributes` — LF no repo, nativo na máquina; `.bat`/`.vbs` em CRLF porque o interpretador do Windows exige.
-- `.python-version` / `requirements.txt` — CI and clean machines use the same exact Python version and hash-locked dependencies.
+- `.python-version` / `requirements.txt` — local environments and optional manual hosted fallbacks use the same exact Python version and hash-locked dependencies.
 - `pytest.ini` / `conftest.py` — réguas da suíte fora de `tests/`: guarda que mora dentro do que vigia some junto.
 - `tools/` — scripts determinísticos com router próprio; o veredito e o lint moram aqui porque são ferramentas, não testes.
 - `tests/` — um arquivo por gate; cada gate tem teste sintético que prova que ele REPROVA, não só que passa.
@@ -49,7 +55,7 @@ Os mesmos comandos do CI (`.github/workflows/tests.yml`), rodados com o Python d
 - `docs/` — referência durável com router; começa vazia de propósito.
 - `.specs/` — decisões (`STATE.md`) e lições (`LESSONS.md`) versionadas: o porquê é o que a próxima sessão não reconstrói sozinha.
 - `.claude/` — rules que carregam na sessão, sub-agente verificador (autor ≠ verificador), commands de gate e hooks de aviso de compactação.
-- `.github/` — veredito + lint em matriz enxuta (`tests.yml`: ubuntu sempre, +windows só em PR) com macOS verificado semanalmente em `tests-macos.yml` (gate de um SO só é gate presumido) e varredura de segredos com binário pinado por checksum.
+- `.github/` — manual hosted fallbacks for the local verification commands. They retain pinned actions and the checksum-verified Gitleaks binary without consuming minutes automatically.
 
 ## Memória do agente (opcional)
 
@@ -80,7 +86,7 @@ Depois, no clone novo, é o **agente** quem executa este checklist ao abrir a pr
    claude plugin install os-audit@caio-mor
    ```
    Conferir com `claude plugin list` e colar a saída na entrega.
-7. Primeiro commit em branch + PR, colando na entrega o veredito `VERDE`, o `0 erro(s)` do lint e o placar do auditor.
+7. Primeiro commit em branch + PR, execute the local verification contract above and attach the commit, OS, Python version, and complete results. Do not claim success if any listed command is unavailable or fails.
 
 ## O que o Claude Code bloqueia sozinho neste repo
 
@@ -89,7 +95,7 @@ As regras acima (segredo só em `.env`, nunca commit direto na `main`) deixaram 
 - **`guarda_bash.py`** (todo comando `Bash`): bloqueia `git commit` direto em `main`/`master`, `git push --force`/`-f`/`--force-with-lease`, qualquer `--no-verify` e `git push` com destino explícito `main`/`master`.
 - **`guarda_segredo.py`** (todo `Edit`/`Write`/`MultiEdit`): bloqueia escrita em `.env` e em qualquer variante `.env.algo` (exceto `.env.example`) e conteúdo que casa com padrão de chave/segredo conhecido (AWS, GitHub, chave privada, JWT, Supabase, `x-api-key`).
 
-Both hooks fail closed. The interpreter wrapper (`.claude/hooks/run_hook.sh`) selects the repository `.venv` before falling back to system `python3` or `python`. `tests/test_hooks.py` proves the block and pass paths in Linux and Windows CI, with macOS weekly.
+Both hooks fail closed. The interpreter wrapper (`.claude/hooks/run_hook.sh`) selects the repository `.venv` before falling back to system `python3` or `python`. `tests/test_hooks.py` proves the block and pass paths locally; run the full contract on each operating system the owner chooses to support.
 
 ---
 

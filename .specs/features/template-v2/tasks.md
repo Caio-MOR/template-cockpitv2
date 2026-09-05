@@ -45,10 +45,18 @@ T5 -> T6
 T7 -> T8 -> T4
 ```
 
+### Phase 4: Local-first verification
+
+```
+T8 -> T9
+```
+
 ## Phase Execution Map
 
 ```
 T1 -> T2 -> T3 -> T5 -> T6 -> T7 -> T8 -> T4
+                                      \
+                                       -> T9
 ```
 
 ## Task Breakdown
@@ -199,6 +207,23 @@ T1 -> T2 -> T3 -> T5 -> T6 -> T7 -> T8 -> T4
 **Tests**: temporary-copy integration
 **Gate**: `python3 tools/validate_new_instance.py . && python3 tools/gate_veredito.py`
 
+### T9: Make verification local-first
+
+**What**: Replace automatic hosted execution with documented local verification and manual hosted fallbacks, while keeping the same deterministic security and quality commands.
+**Where**: `README.md`
+**Files**: `.github/workflows/`; `AGENTS.md`; `README.md`; `docs/`; `tools/operational_audit.py`; `tools/padrao_ouro_audit.py`; `tests/test_ci_pinado.py`; `tests/test_operational_audit.py`; `tests/test_padrao_ouro.py`; `.specs/features/template-v2/`
+**Depends on**: T8
+**Requirement**: TV2-06
+
+**Done when**:
+
+- [x] Every hosted workflow is dispatch-only and the manual test fallback covers Linux and Windows.
+- [x] The local contract names every required gate, requires commit/SO/Python/result evidence, and blocks an unavailable command from being reported as a pass.
+- [x] The operational and gold audits enforce the local contract instead of treating an automatic workflow as proof.
+
+**Tests**: declarative and mutation
+**Gate**: `python3 tools/gate_veredito.py && python3 tools/validate_new_instance.py .`
+
 ## Task Granularity Check
 
 | Task | Scope | Status |
@@ -211,6 +236,7 @@ T1 -> T2 -> T3 -> T5 -> T6 -> T7 -> T8 -> T4
 | T6 | Router/documentation integration | ✅ Granular |
 | T7 | Agent/eval ownership component | ✅ Granular |
 | T8 | New-instance lifecycle component | ✅ Granular |
+| T9 | Local-first verification component | ✅ Granular |
 
 ## Diagram-Definition Cross-Check
 
@@ -224,6 +250,7 @@ T1 -> T2 -> T3 -> T5 -> T6 -> T7 -> T8 -> T4
 | T6 | T5 | T5 -> T6 | ✅ Match |
 | T7 | T6 | T6 -> T7 | ✅ Match |
 | T8 | T7 | T7 -> T8 | ✅ Match |
+| T9 | T8 | T8 -> T9 | ✅ Match |
 
 ## Test Co-location Validation
 
@@ -237,3 +264,4 @@ T1 -> T2 -> T3 -> T5 -> T6 -> T7 -> T8 -> T4
 | T6 | Routers/docs | declarative | declarative | ✅ OK |
 | T7 | Delegation/eval | declarative | declarative | ✅ OK |
 | T8 | New instance | temporary-copy integration | temporary-copy integration | ✅ OK |
+| T9 | Verification contract | declarative and mutation | declarative and mutation | ✅ OK |

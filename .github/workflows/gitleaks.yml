@@ -1,15 +1,12 @@
 name: gitleaks
 
-# Portão de segredos: todo push e toda PR passam pela varredura do histórico completo
-# — o scan local continua valendo, mas deixa de depender de alguém lembrar de rodar.
+# Fallback hospedado opcional para a varredura completa de segredos. A varredura
+# local documentada é obrigatória; este workflow só roda por despacho explícito.
 # Binário pinado por versão E por checksum: baixar-e-executar sem conferir o hash é
 # confiar no servidor de download com o token do repo na mão.
 
 on:
-  pull_request:
-  merge_group:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read

@@ -1,14 +1,10 @@
 name: security
 
-# Verificações locais de dependências e código: nenhuma credencial é necessária.
-# pip-audit e Bandit rodam em PRs e na main. A ação nativa de dependency review
-# depends on the repository plan and is intentionally not required by this workflow.
+# Fallback hospedado opcional para os comandos de segurança locais. Nenhuma
+# credencial é necessária; este workflow só roda por despacho explícito.
 
 on:
-  pull_request:
-  merge_group:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
