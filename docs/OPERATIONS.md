@@ -95,31 +95,11 @@ and resume only with a reviewed idempotency key.
 - Quarterly: encrypted restore drill and GitHub ruleset review.
 - After any incident: immediate revocation/recovery exercise and a regression test.
 
-## Private-repository CI runner
+## CI execution
 
-The required `cockpit-required` check runs on the repository-scoped macOS runner with
-the custom label `cakopit-codex`. GitHub remains the merge-enforcement control plane;
-the Mac supplies the compute without consuming GitHub-hosted minutes.
-
-- Keep the runner repository-scoped and accept jobs only from this private repository.
-- Assign repository ownership through `.github/CODEOWNERS` during initialization; do not encode a personal account or machine in this template.
-  Before adding any collaborator, stop the service and move it to a dedicated non-admin
-  account or disposable host. The in-workflow author check is defense in depth, not the
-  trust boundary, because pull-request workflow content can change with the branch.
-- Never use `pull_request_target` to execute pull-request code on the runner.
-- Treat every workflow change as code execution on the Mac and review it before merge.
-- Each job creates a fresh workspace-local virtual environment and deletes it on every
-  controlled exit. Persistent caches are never accepted as verification evidence.
-- The runner host must not expose production credentials, an unlocked secrets keychain,
-  an SSH agent, or unrelated project data to the service account. A dedicated non-admin
-  macOS account or disposable host is required before untrusted collaborators are added.
-- Confirm the service and GitHub runner status before relying on a queued result.
-- Update the runner from GitHub's repository runner-download metadata, verify its
-  published SHA-256 checksum, then restart and recheck the service.
-- If the runner is offline, required checks remain queued and merging stays blocked;
-  do not bypass the ruleset. Restore the service or run reviewed emergency procedure.
-- The hosted cross-platform workflows remain the portability check and may be re-enabled
-  when hosted minutes are available; they do not replace the required local Mac gate.
+This template uses hosted CI only. A generated repository may add a self-hosted runner
+after a repository-specific security review, but no personal runner, label, owner, or
+merge requirement belongs in the template.
 
 GitHub native secret scanning, CodeQL, and dependency review are currently unavailable
 for this private personal repository without GitHub Code Security/Secret Protection.

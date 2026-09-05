@@ -56,19 +56,28 @@ from __future__ import annotations
 import argparse
 import fnmatch
 import json
+import os
 import re
 import shutil
 import subprocess
 import sys
 import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 
 import yaml
 
-RUNNER_VERSAO = "1.0.0"  # ver "Cópia canônica" na docstring: sobe junto da propagação
+RUNNER_VERSAO = "1.1.0"  # ver "Cópia canônica" na docstring: sobe junto da propagação
+RESULTADO_SCHEMA = "eval-runner-result/v1"
 TETO_CASOS_INFRA_CONSECUTIVOS = 3  # loop-engineering: nunca insistir além disso
 RE_FRONTMATTER = re.compile(r"\A---\s*\n(.*?)\n---\s*\n?", re.DOTALL)
 MARCADORES_AUTH = ("not logged in", "authentication_failed", "please run /login")
+ENV_ALLOWLIST = frozenset({
+    "PATH", "HOME", "USERPROFILE", "HOMEDRIVE", "HOMEPATH", "SystemRoot", "WINDIR",
+    "TEMP", "TMP", "TMPDIR", "PATHEXT", "ComSpec", "SHELL", "LANG", "LC_ALL",
+    "LC_CTYPE", "TERM", "NO_COLOR", "CLAUDE_CONFIG_DIR", "DISABLE_AUTOUPDATER",
+    "DISABLE_TELEMETRY", "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC",
+})
 
 
 class ErroInfra(Exception):
@@ -77,6 +86,147 @@ class ErroInfra(Exception):
 
 class ErroCasoMalFormado(Exception):
     """Caso/gráder com formato inválido (frontmatter quebrado, regex incompilável)."""
+
+
+def _agora_iso() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+
+def ambiente_seguro(ambiente: dict[str, str] | None = None) -> dict[str, str]:
+    """Mantém apenas as variáveis necessárias para autenticação por subscription."""
+    origem = os.environ if ambiente is None else ambiente
+    seguro = {nome: valor for nome, valor in origem.items() if nome in ENV_ALLOWLIST}
+    seguro.setdefault("DISABLE_AUTOUPDATER", "1")
+    seguro.setdefault("DISABLE_TELEMETRY", "1")
+    seguro.setdefault("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", "1")
+    return seguro
+
+
+def _validar_cwd(cwd: Path) -> Path:
+    caminho = Path(cwd)
+    if not caminho.is_absolute() or not caminho.is_dir():
+        raise ErroInfra("cwd do eval precisa ser um diretório absoluto existente")
+    resolvido = caminho.resolve()
+    if resolvido != caminho:
+        raise ErroInfra("cwd do eval não pode ser um link simbólico")
+    return resolvido
+
+
+def _git_info(raiz: Path) -> dict[str, str | bool | None]:
+    """Lê proveniência não sensível; ausência de git fica explícita."""
+    base_env = ambiente_seguro()
+    try:
+        commit = subprocess.run(
+            ["git", "-C", str(raiz), "rev-parse", "HEAD"],
+            capture_output=True, text=True, check=False, timeout=5, env=base_env,
+        ).stdout.strip() or None
+        status = subprocess.run(
+            ["git", "-C", str(raiz), "status", "--porcelain", "--untracked-files=all"],
+            capture_output=True, text=True, check=False, timeout=5, env=base_env,
+        ).stdout
+    except (OSError, subprocess.TimeoutExpired):
+        return {"commit": None, "dirty": None}
+    return {"commit": commit, "dirty": bool(status.strip())}
+
+
+def _caminho_saida_seguro(caminho: str, raiz: Path) -> Path:
+    destino = Path(caminho)
+    if not destino.is_absolute():
+        destino = raiz / destino
+    destino = destino.resolve()
+    try:
+        destino.relative_to(raiz)
+    except ValueError as e:
+        raise ErroInfra("arquivo JSON precisa ficar dentro da raiz do repositório") from e
+    if destino == raiz or destino.exists() and destino.is_dir():
+        raise ErroInfra("arquivo JSON precisa ser um arquivo")
+    return destino
+
+
+def _escrever_json_atomico(destino: Path, dados: dict) -> None:
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    fd, temporario = tempfile.mkstemp(prefix=f".{destino.name}.", suffix=".tmp", dir=destino.parent)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as arquivo:
+            json.dump(dados, arquivo, ensure_ascii=False, indent=2)
+            arquivo.write("\n")
+            arquivo.flush()
+            os.fsync(arquivo.fileno())
+        os.replace(temporario, destino)
+    except Exception:
+        try:
+            os.unlink(temporario)
+        except OSError:
+            pass
+        raise
+
+
+def validar_resultado(resultado: dict, *, agora: datetime | None = None,
+                      max_age_seconds: int | float | None = 86_400) -> list[str]:
+    """Devolve erros de frescor e cobertura completa para um resultado de eval."""
+    erros: list[str] = []
+    if not isinstance(resultado, dict) or resultado.get("schema") != RESULTADO_SCHEMA:
+        return ["schema ausente ou incompatível"]
+    for campo in ("runner_version", "started_at", "finished_at", "case_inventory", "cases", "aggregates"):
+        if campo not in resultado:
+            erros.append(f"campo obrigatório ausente: {campo}")
+    if erros:
+        return erros
+    try:
+        started = datetime.fromisoformat(str(resultado["started_at"]).replace("Z", "+00:00"))
+        finished = datetime.fromisoformat(str(resultado["finished_at"]).replace("Z", "+00:00"))
+        if started.tzinfo is None or finished.tzinfo is None or finished < started:
+            raise ValueError
+    except (TypeError, ValueError):
+        erros.append("timestamps inválidos ou fora de ordem")
+        finished = None
+    if finished is not None and max_age_seconds is not None:
+        idade = ((agora or datetime.now(timezone.utc)) - finished).total_seconds()
+        if idade < -60:
+            erros.append("finished_at está no futuro")
+        elif idade > max_age_seconds:
+            erros.append(f"resultado antigo ({idade:.0f}s > {max_age_seconds}s)")
+    inventario, casos = resultado.get("case_inventory"), resultado.get("cases")
+    if not isinstance(inventario, list) or not isinstance(casos, list):
+        return erros + ["case_inventory/cases precisam ser listas"]
+
+    def extrair_chaves(itens: list, campo: str) -> list[str]:
+        chaves: list[str] = []
+        for indice, item in enumerate(itens):
+            if not isinstance(item, dict):
+                erros.append(f"{campo}[{indice}] precisa ser um objeto")
+                continue
+            chave = item.get("case_key")
+            if not isinstance(chave, str) or not chave.strip():
+                erros.append(f"{campo}[{indice}].case_key precisa ser texto não vazio")
+                continue
+            chaves.append(chave)
+        return chaves
+
+    chaves_inv = extrair_chaves(inventario, "case_inventory")
+    chaves_res = extrair_chaves(casos, "cases")
+    if len(set(chaves_inv)) != len(chaves_inv):
+        erros.append("case_inventory contém casos duplicados")
+    if len(set(chaves_res)) != len(chaves_res):
+        erros.append("cases contém casos duplicados")
+    if set(chaves_inv) != set(chaves_res) or len(chaves_res) != len(casos):
+        erros.append("resultado não cobre exatamente o inventário de casos")
+    esperados = {item["case_key"]: item.get("expected_runs") for item in inventario
+                 if isinstance(item, dict) and isinstance(item.get("case_key"), str)}
+    for caso in casos:
+        if not isinstance(caso, dict):
+            continue
+        chave = caso.get("case_key")
+        if not isinstance(chave, str) or chave not in esperados:
+            continue
+        runs = caso.get("runs")
+        if caso.get("total") != esperados[chave] or not isinstance(runs, list) or len(runs) != esperados[chave]:
+            erros.append(f"caso incompleto: {chave}")
+    return erros
+
+
+def resultado_valido(resultado: dict, **kwargs) -> bool:
+    return not validar_resultado(resultado, **kwargs)
 
 
 # ---------------------------------------------------------------------------
@@ -128,9 +278,13 @@ def parse_frontmatter(texto: str, origem: str) -> tuple[dict, str]:
     if not m:
         raise ErroCasoMalFormado(f"{origem}: sem frontmatter (precisa começar com `---`)")
     try:
-        campos = yaml.safe_load(m.group(1)) or {}
+        campos = yaml.safe_load(m.group(1))
     except yaml.YAMLError as e:
         raise ErroCasoMalFormado(f"{origem}: frontmatter YAML inválido ({e})") from e
+    if campos is None:
+        campos = {}
+    if not isinstance(campos, dict):
+        raise ErroCasoMalFormado(f"{origem}: frontmatter YAML precisa ser um mapa")
     # Gotcha medido (2026-09-04, Windows): um corpo de prompt com quebra de linha
     # (parágrafo dobrado por legibilidade no .md) vira uma única entrada de
     # subprocess.run([...]), mas o CLI do claude é um wrapper .cmd — no Windows,
@@ -197,10 +351,11 @@ def montar_comando(caminho_claude: str, prompt: str, max_turns: int, plugin_dir:
 
 
 def _rodar_subprocesso(cmd: list[str], cwd: Path, timeout_s: int) -> subprocess.CompletedProcess:
+    cwd = _validar_cwd(cwd)
     try:
         return subprocess.run(
             cmd, cwd=str(cwd), capture_output=True, timeout=timeout_s,
-            encoding="utf-8", errors="replace", check=False,
+            encoding="utf-8", errors="replace", check=False, env=ambiente_seguro(),
         )
     except subprocess.TimeoutExpired as e:
         raise ErroInfra(f"timeout ({timeout_s}s) rodando `claude -p`") from e
@@ -239,8 +394,7 @@ def executar_run(caminho_claude: str, prompt: str, max_turns: int, timeout_s: in
             "autenticar o app não autentica o CLI standalone"
         )
     if not linhas:
-        raise ErroInfra(f"`claude -p` não produziu stream-json legível (exit {r.returncode}): "
-                         f"{(r.stderr or '').strip()[:300]}")
+        raise ErroInfra(f"`claude -p` não produziu stream-json legível (exit {r.returncode})")
     return linhas
 
 
@@ -310,21 +464,28 @@ def rodar_caso(caminho_claude: str, caso: dict, plugin_dir: Path | None,
     for _ in range(runs):
         with tempfile.TemporaryDirectory(prefix="eval_runner_") as tmp:
             cwd = Path(tmp)
+            plugin_dir_exec = None
+            if plugin_dir is not None:
+                plugin_dir_exec = cwd / ".plugin-under-test"
+                shutil.copytree(plugin_dir, plugin_dir_exec)
             if skill_copia is not None:
                 origem, nome_skill = skill_copia
                 destino = cwd / ".claude" / "skills" / nome_skill
                 shutil.copytree(origem, destino)
+            inicio = _agora_iso()
             try:
                 linhas = executar_run(
                     caminho_claude, caso["prompt"], caso["max_turns"],
-                    caso["timeout_seconds"], cwd, plugin_dir,
+                    caso["timeout_seconds"], cwd, plugin_dir_exec,
                 )
             except ErroInfra as e:
-                resultados.append({"ok": False, "infra": str(e), "graders": []})
+                resultados.append({"ok": False, "infra": str(e), "graders": [],
+                                   "started_at": inicio, "finished_at": _agora_iso()})
                 continue
             veredito_graders = [avaliar_grader(g, linhas, cwd) for g in caso["graders"]]
             ok = all(v["passou"] for v in veredito_graders)
-            resultados.append({"ok": ok, "infra": None, "graders": veredito_graders})
+            resultados.append({"ok": ok, "infra": None, "graders": veredito_graders,
+                               "started_at": inicio, "finished_at": _agora_iso()})
     ok_count = sum(1 for r in resultados if r["ok"])
     return {
         "nome": caso["nome"], "tags": caso["tags"], "runs": resultados,
@@ -353,11 +514,35 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--case", default=None, help="glob de nome de caso (aplica a todos os plugins/skills selecionados)")
     ap.add_argument("--json", default=None, help="salva resultado em JSON neste caminho")
     ap.add_argument("--threshold", type=float, default=1.0, help="fração mínima de runs ok por caso (default 1.0)")
+    ap.add_argument("--validate-json", default=None, help="valida um resultado JSON existente (sem chamar claude)")
+    ap.add_argument("--max-age-seconds", type=float, default=86_400,
+                    help="idade máxima para --validate-json (default 86400; use -1 para desabilitar)")
     args = ap.parse_args(argv)
+
+    if args.runs is not None and args.runs <= 0:
+        print("eval_runner: `--runs` precisa ser inteiro positivo", file=sys.stderr)
+        return 2
+    if not 0 <= args.threshold <= 1:
+        print("eval_runner: `--threshold` precisa estar entre 0 e 1", file=sys.stderr)
+        return 2
 
     for fluxo in (sys.stdout, sys.stderr):
         if hasattr(fluxo, "reconfigure"):
             fluxo.reconfigure(encoding="utf-8")
+
+    if args.validate_json:
+        try:
+            resultado = json.loads(Path(args.validate_json).read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as e:
+            print(f"eval_runner: não foi possível ler resultado JSON: {e}", file=sys.stderr)
+            return 2
+        idade_max = None if args.max_age_seconds < 0 else args.max_age_seconds
+        erros = validar_resultado(resultado, max_age_seconds=idade_max)
+        if erros:
+            print("eval_runner: resultado inválido — " + "; ".join(erros), file=sys.stderr)
+            return 1
+        print("eval_runner: resultado válido")
+        return 0
 
     caminho_claude = shutil.which("claude")
     if caminho_claude is None:
@@ -392,8 +577,8 @@ def main(argv: list[str] | None = None) -> int:
             plugin_dir = plugins[nome]
             alvos.append((nome, plugin_dir / "evals", plugin_dir, None))
 
-    resultados_casos: list[dict] = []
-    casos_infra_consecutivos = 0
+    plano: list[tuple[str, dict, Path | None, tuple[Path, str] | None, str]] = []
+    inventario: list[dict] = []
     for nome, evals_dir, plugin_dir, skill_copia in alvos:
         for case_dir in descobrir_casos(evals_dir, args.case):
             try:
@@ -401,21 +586,58 @@ def main(argv: list[str] | None = None) -> int:
             except ErroCasoMalFormado as e:
                 print(f"eval_runner: {e}", file=sys.stderr)
                 return 2
-            resultado = rodar_caso(caminho_claude, caso, plugin_dir, skill_copia, args.runs)
-            resultado["plugin_ou_skill"] = nome
-            resultados_casos.append(resultado)
-            if resultado["todos_infra"]:
-                casos_infra_consecutivos += 1
-                if casos_infra_consecutivos >= TETO_CASOS_INFRA_CONSECUTIVOS:
-                    print(f"eval_runner: {TETO_CASOS_INFRA_CONSECUTIVOS} casos consecutivos "
-                          f"falharam por infraestrutura — abortando (não insistir)", file=sys.stderr)
-                    return 2
-            else:
-                casos_infra_consecutivos = 0
-
-    if not resultados_casos:
+            case_key = f"{nome}/{caso['nome']}"
+            plano.append((nome, caso, plugin_dir, skill_copia, case_key))
+            inventario.append({
+                "case_key": case_key, "name": caso["nome"], "plugin_or_skill": nome,
+                "tags": caso["tags"], "expected_runs": args.runs if args.runs is not None else caso["runs"],
+                "grader_count": len(caso["graders"]),
+            })
+    if not plano:
         print("eval_runner: nenhum caso encontrado", file=sys.stderr)
         return 2
+
+    resultados_casos: list[dict] = []
+    casos_infra_consecutivos = 0
+    inicio_suite = _agora_iso()
+    for nome, caso, plugin_dir, skill_copia, case_key in plano:
+        resultado = rodar_caso(caminho_claude, caso, plugin_dir, skill_copia, args.runs)
+        resultado["plugin_ou_skill"] = nome
+        resultado["case_key"] = case_key
+        resultados_casos.append(resultado)
+        if resultado["todos_infra"]:
+            casos_infra_consecutivos += 1
+            if casos_infra_consecutivos >= TETO_CASOS_INFRA_CONSECUTIVOS:
+                print(f"eval_runner: {TETO_CASOS_INFRA_CONSECUTIVOS} casos consecutivos "
+                      f"falharam por infraestrutura — abortando (não insistir)", file=sys.stderr)
+                break
+        else:
+            casos_infra_consecutivos = 0
+
+    fim_suite = _agora_iso()
+    saida_json = {
+        "schema": RESULTADO_SCHEMA, "runner_version": RUNNER_VERSAO,
+        "started_at": inicio_suite, "finished_at": fim_suite, "git": _git_info(raiz),
+        "case_inventory": inventario,
+        "cases": [
+            {"case_key": c["case_key"], "name": c["nome"], "plugin_or_skill": c["plugin_ou_skill"],
+             "tags": c["tags"], "runs": c["runs"], "ok": c["ok"], "total": c["total"],
+             "todos_infra": c["todos_infra"]}
+            for c in resultados_casos
+        ],
+        "aggregates": {
+                "total_casos": len(resultados_casos),
+                "casos_ok": sum(1 for c in resultados_casos
+                                 if (c["ok"] / c["total"] if c["total"] else 0) >= args.threshold),
+                "threshold": args.threshold,
+        },
+    }
+    if args.json:
+        try:
+            _escrever_json_atomico(_caminho_saida_seguro(args.json, raiz), saida_json)
+        except (OSError, ErroInfra) as e:
+            print(f"eval_runner: não foi possível salvar JSON: {e}", file=sys.stderr)
+            return 2
 
     nenhuma_transcricao_valida = all(
         r["infra"] is not None for c in resultados_casos for r in c["runs"]
@@ -427,24 +649,6 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     print(formatar_tabela(resultados_casos, args.threshold))
-
-    if args.json:
-        saida_json = {
-            "cases": [
-                {
-                    "name": c["nome"], "plugin_or_skill": c["plugin_ou_skill"], "tags": c["tags"],
-                    "runs": c["runs"],
-                }
-                for c in resultados_casos
-            ],
-            "aggregates": {
-                "total_casos": len(resultados_casos),
-                "casos_ok": sum(1 for c in resultados_casos
-                                 if (c["ok"] / c["total"] if c["total"] else 0) >= args.threshold),
-                "threshold": args.threshold,
-            },
-        }
-        Path(args.json).write_text(json.dumps(saida_json, ensure_ascii=False, indent=2), encoding="utf-8")
 
     algum_fail = any((c["ok"] / c["total"] if c["total"] else 0) < args.threshold for c in resultados_casos)
     return 1 if algum_fail else 0

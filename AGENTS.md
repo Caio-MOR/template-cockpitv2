@@ -29,7 +29,7 @@ Categorias com conteúdo variável têm router local (`CLAUDE.md` dentro da past
 | Spec de feature em andamento e log de decisões | `.specs/` — `STATE.md` (decisões AD-nnn + handoff), `LESSONS.md`, uma pasta por feature quando houver |
 | Rules, sub-agentes, commands, skills, hooks | `.claude/` — `rules/` (carregadas na abertura da sessão), `agents/`, `commands/`, `skills/` (`_exemplo-skill/` é o modelo a copiar), `hooks/` (guarda de bash e de segredo, enforcement em runtime), `settings.json` (`permissions` + hooks `PreToolUse`; também registra o marketplace de plugins de processo, caio-mor) |
 | CI (veredito da suíte + lint; matriz enxuta + macOS semanal; varredura de segredos) | `.github/workflows/tests.yml`, `.github/workflows/tests-macos.yml` e `.github/workflows/gitleaks.yml` |
-| Configuração de gate e de ambiente | `conftest.py` (réguas da suíte), `pytest.ini`, `requirements.txt`, `.python-version` (3.12), `.gitignore` (allowlist nega-tudo), `.gitattributes` |
+| Configuração de gate e de ambiente | `conftest.py` (réguas da suíte), `pytest.ini`, `requirements.txt`, `.python-version` (3.12.13), `.codex/config.example.toml` (perfil Codex opcional), `.gitignore` (allowlist nega-tudo), `.gitattributes` |
 | Instruções para agentes e porta de entrada humana | `AGENTS.md` (fonte única), `CLAUDE.md` (importa este + adendos), `README.md` (humanos) |
 
 **Escopo por máquina:** o git versiona só o esqueleto (gitignore em allowlist). Logs, dados de rotina e `.env` vivem na máquina e podem não existir num clone — conferir antes de concluir que algo sumiu.

@@ -173,9 +173,9 @@ T1 -> T2 -> T3 -> T5 -> T6 -> T7 -> T8 -> T4
 
 **Done when**:
 
-- [ ] Guidance selects `gpt-5.6-luna` only when the harness exposes model selection and that model; otherwise it directs the harness default or inline execution.
-- [ ] Material changes require a fresh independent verifier, but no local setting falsely claims to enforce orchestration.
-- [ ] Runner synchronization test records the supplied immutable plugin commit and rejects an altered local copy.
+- [x] Guidance selects `gpt-5.6-luna` only when the harness exposes model selection and that model; otherwise it directs the harness default or inline execution.
+- [x] Material changes require a fresh independent verifier, but no local setting falsely claims to enforce orchestration.
+- [x] Runner synchronization test records the supplied immutable plugin commit and rejects an altered local copy.
 
 **Tests**: declarative
 **Gate**: `python3 tools/gate_veredito.py`
