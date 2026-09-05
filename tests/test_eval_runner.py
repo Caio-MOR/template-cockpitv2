@@ -25,7 +25,7 @@ import eval_runner  # noqa: E402
 
 def _carregar_transcricao(nome: str) -> list[dict]:
     texto = (FIXTURES / nome).read_text(encoding="utf-8")
-    return [json.loads(l) for l in texto.splitlines() if l.strip()]
+    return [json.loads(line) for line in texto.splitlines() if line.strip()]
 
 
 # ---------------------------------------------------------------------------
