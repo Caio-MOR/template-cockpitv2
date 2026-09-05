@@ -83,7 +83,10 @@ def _write_marker(covered_on: date) -> None:
     temporary = MARKER.with_name(f".{MARKER.name}.{os.getpid()}.tmp")
     try:
         temporary.write_text(f"{covered_on:%Y-%m-%d}\n", encoding="utf-8")
-        with temporary.open("rb") as stream:
+        # Windows requires a writable descriptor for fsync (read-only ``rb``
+        # descriptors fail with EBADF); ``r+b`` preserves the already-written
+        # contents while providing the required durable flush handle.
+        with temporary.open("r+b") as stream:
             os.fsync(stream.fileno())
         os.replace(temporary, MARKER)
     finally:

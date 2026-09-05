@@ -52,6 +52,7 @@ O laço em `C` é retry local com teto (não muda o formato dominante: a rotina 
 | Insumo ausente | `ERRO` no log com o nome do insumo; exit 1; sem marker | Conferir a origem do insumo |
 | Falha transitória | Retenta até 3 vezes; na 3ª, `ERRO` dizendo em qual tentativa parou | Ler o `detalhe` do último `ERRO` |
 | Falha na entrega | `ERRO`, exit 1, marker **não** é escrito | Marker antigo denuncia a janela sem cobertura |
+| Falha ao durabilizar o marker no Windows | O arquivo temporário é reaberto com descriptor gravável (`r+b`) antes de `fsync`; o rename atômico e a idempotência são preservados | Verificar permissões e o erro de disco se a falha persistir |
 | Run duplicado ou concorrente | `SKIP`, exit 0; o segundo processo não executa processamento/entrega | Nenhuma ação; lock garante uma execução por janela |
 | Lock stale | Após 5 min, recupera o lock somente quando o dono registrado não está vivo no host; preserva o arquivo anterior como `.stale.*` | Investigar os arquivos stale se forem frequentes |
 
