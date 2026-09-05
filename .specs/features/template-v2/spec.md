@@ -100,7 +100,7 @@
 
 | Requirement ID | Story | Phase | Status |
 | --- | --- | --- | --- |
-| TV2-01 | P1: Portable control baseline | Design | Pending |
+| TV2-01 | P1: Portable control baseline | Execute | Verified |
 | TV2-02 | P1: Portable control baseline | Design | Pending |
 | TV2-03 | P1: Portable control baseline | Design | Pending |
 | TV2-04 | P1: Portable control baseline | Design | Pending |

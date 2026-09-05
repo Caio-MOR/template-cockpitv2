@@ -64,9 +64,9 @@ T1 -> T2 -> T3 -> T4 -> T5 -> T6 -> T7 -> T8
 
 **Done when**:
 
-- [ ] Retry has explicit attempt and deadline ceilings, and its tests kill a permanent-error retry and an exhausted retry.
-- [ ] Lock recovery, atomic evidence, recursive redaction, backup tamper detection, and concurrent workflow no-op tests pass.
-- [ ] The workflow graph declares its format and bounded-loop behavior.
+- [x] Retry has explicit attempt and deadline ceilings, and its tests kill a permanent-error retry and an exhausted retry.
+- [x] Lock recovery, atomic evidence, recursive redaction, backup tamper detection, and concurrent workflow no-op tests pass.
+- [x] The workflow graph declares its format and bounded-loop behavior.
 
 **Tests**: unit and concurrency smoke
 **Gate**: `python3 tools/gate_veredito.py`
