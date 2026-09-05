@@ -30,7 +30,7 @@ def rotina_fs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 
 
 def _events(logs: Path) -> list[dict]:
-    return [json.loads(path.read_text()) for path in sorted((logs / "evidence").glob("*.json"))]
+    return [json.loads(path.read_text(encoding="utf-8")) for path in sorted((logs / "evidence").glob("*.json"))]
 
 
 def test_duplicate_run_is_a_noop_after_success(rotina_fs: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -41,9 +41,9 @@ def test_duplicate_run_is_a_noop_after_success(rotina_fs: Path, monkeypatch: pyt
     assert rotina_exemplo.main(covered) == 0
     assert rotina_exemplo.main(covered) == 0
     assert calls == [1]
-    assert rotina_exemplo.MARKER.read_text() == "2026-09-04\n"
+    assert rotina_exemplo.MARKER.read_text(encoding="utf-8") == "2026-09-04\n"
     assert [event["event"] for event in _events(rotina_fs)] == ["started", "completed"]
-    assert "já concluída" in rotina_exemplo.LOG.read_text()
+    assert "já concluída" in rotina_exemplo.LOG.read_text(encoding="utf-8")
 
 
 def test_concurrent_run_cannot_enter_processing_twice(
@@ -72,7 +72,7 @@ def test_concurrent_run_cannot_enter_processing_twice(
     assert first_result == [0]
     assert calls == [1]
     assert rotina_exemplo.MARKER.exists()
-    assert "duplicado/concurrente" in rotina_exemplo.LOG.read_text()
+    assert "duplicado/concurrente" in rotina_exemplo.LOG.read_text(encoding="utf-8")
 
 
 def test_transient_processing_is_bounded_and_completes(
@@ -87,7 +87,7 @@ def test_transient_processing_is_bounded_and_completes(
     monkeypatch.setattr(rotina_exemplo, "processar", process)
     assert rotina_exemplo.main(date(2026, 9, 4)) == 0
     assert calls == [1, 2, 3]
-    assert "tentativa 1/3 falhou" in rotina_exemplo.LOG.read_text()
+    assert "tentativa 1/3 falhou" in rotina_exemplo.LOG.read_text(encoding="utf-8")
     assert rotina_exemplo.MARKER.exists()
 
 
@@ -99,7 +99,7 @@ def test_delivery_failure_has_no_completion_marker_or_event(
     assert rotina_exemplo.main(date(2026, 9, 4)) == 1
     assert not rotina_exemplo.MARKER.exists()
     assert [event["event"] for event in _events(rotina_fs)] == ["started"]
-    assert "entrega falhou" in rotina_exemplo.LOG.read_text()
+    assert "entrega falhou" in rotina_exemplo.LOG.read_text(encoding="utf-8")
 
 
 def test_atomic_marker_fault_preserves_previous_marker(
@@ -114,5 +114,5 @@ def test_atomic_marker_fault_preserves_previous_marker(
     monkeypatch.setattr(rotina_exemplo.os, "replace", fail_replace)
     with pytest.raises(OSError):
         rotina_exemplo._write_marker(date(2026, 9, 4))
-    assert rotina_exemplo.MARKER.read_text() == "2026-09-03\n"
+    assert rotina_exemplo.MARKER.read_text(encoding="utf-8") == "2026-09-03\n"
     assert list(rotina_exemplo.LOGS.glob(".*.tmp")) == []
