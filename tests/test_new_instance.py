@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -12,9 +13,21 @@ import initialize_template  # noqa: E402
 import validate_new_instance  # noqa: E402
 
 
+def _git(*args: str, cwd: Path) -> subprocess.CompletedProcess:
+    return subprocess.run(["git", *args], cwd=str(cwd), capture_output=True, text=True,
+                          encoding="utf-8", errors="replace", timeout=60, check=True)
+
+
 def _copy_template(tmp_path: Path) -> Path:
+    """Cópia do template como repositório git próprio — é o que `gh repo create
+    --template` entrega, e é onde o inicializador ativa `core.hooksPath`."""
     instance = tmp_path / "instance"
     shutil.copytree(RAIZ, instance, ignore=shutil.ignore_patterns(".git", ".venv", ".pytest_cache", ".ruff_cache", ".tmp", "__pycache__"))
+    _git("init", "-q", "-b", "main", cwd=instance)
+    _git("config", "user.email", "t@t.invalid", cwd=instance)
+    _git("config", "user.name", "t", cwd=instance)
+    _git("add", "-A", cwd=instance)
+    _git("commit", "-q", "-m", "instancia", cwd=instance)
     return instance
 
 
@@ -54,6 +67,17 @@ def test_dry_run_is_non_mutating_and_apply_is_allowlisted(tmp_path):
     assert not (instance / ".specs" / "features" / "template-v2").exists()
     assert unrelated.read_text(encoding="utf-8") == "keep"
     assert (instance / ".specs" / "STATE.md").read_text(encoding="utf-8") == initialize_template.INITIAL_STATE
+    # A ativação do hook faz parte da inicialização: sem ela o clone empurra sem gate.
+    assert _git("config", "--get", "core.hooksPath", cwd=instance).stdout.strip() == ".githooks"
+
+
+def test_initializer_fails_when_the_hook_cannot_be_activated(tmp_path):
+    """Pasta que não é repositório git não tem onde guardar `core.hooksPath`: o
+    inicializador diz isso (exit 1) em vez de fingir que o hook está ativo."""
+    instance = tmp_path / "sem-git"
+    shutil.copytree(RAIZ / ".specs", instance / ".specs")
+    assert initialize_template.initialize(instance, dry_run=True) == 0
+    assert initialize_template.initialize(instance, dry_run=False) == 1
 
 
 def test_validator_rejects_build_records_and_placeholders_but_allows_later_files(tmp_path):

@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Local, dependency-free health check for a cockpit checkout.
 
-The doctor checks four things: the interpreter matches the complete version in
-``.python-version``, Git is on a named branch, the tracked-file security policy
-passes, and the local environment satisfies the names declared by
-``.env.example``.  It intentionally reports names and error codes only; values
-from ``.env`` and ``os.environ`` never leave this module.
+The doctor checks five things: the interpreter matches the complete version in
+``.python-version``, Git is on a named branch, the versioned pre-push hook is
+active (``core.hooksPath`` points at ``.githooks`` and the hook file exists), the
+tracked-file security policy passes, and the local environment satisfies the
+names declared by ``.env.example``.  It intentionally reports names and error
+codes only; values from ``.env`` and ``os.environ`` never leave this module.
 
 Environment schema convention
 -----------------------------
@@ -72,6 +73,17 @@ class DoctorIssue:
     name: str | None = None
 
 
+HOOKS_DIR = ".githooks"
+PRE_PUSH_HOOK = f"{HOOKS_DIR}/pre-push"
+
+# Static repair instructions per code.  They name commands and repository paths
+# only, never a value from the environment.
+FIXES = {
+    "hooks_path_not_configured": f"git config core.hooksPath {HOOKS_DIR}",
+    "hook_file_missing": f"restaure {PRE_PUSH_HOOK} a partir do repositório (git checkout -- {PRE_PUSH_HOOK})",
+}
+
+
 @dataclass(frozen=True)
 class DoctorReport:
     """Result containing only check names, field names, and stable error codes."""
@@ -87,7 +99,9 @@ class DoctorReport:
         lines = [f"doctor: {'APROVADO' if self.ok else 'REPROVADO'}"]
         for issue in self.issues:
             subject = f" {issue.name}" if issue.name else ""
-            lines.append(f"- {issue.check}{subject}: {issue.code}")
+            fix = FIXES.get(issue.code)
+            hint = f" (conserto: {fix})" if fix else ""
+            lines.append(f"- {issue.check}{subject}: {issue.code}{hint}")
         return "\n".join(lines)
 
 
@@ -135,6 +149,28 @@ def _check_git(root: Path, expected_branch: str | None) -> list[DoctorIssue]:
         issues.append(DoctorIssue("git", "detached_head"))
     elif expected_branch is not None and branch != expected_branch:
         issues.append(DoctorIssue("git", "unexpected_branch", "branch"))
+    return issues
+
+
+def _check_hooks(root: Path) -> list[DoctorIssue]:
+    """The versioned pre-push hook only runs when the clone opted in.
+
+    Git ignores ``.githooks/`` unless ``core.hooksPath`` points there, so a clone
+    that skipped ``initialize_template.py`` pushes without any local gate.  The
+    doctor makes that silent state visible and names the one-line repair.
+    """
+    issues: list[DoctorIssue] = []
+    try:
+        configured = _git(root, "config", "--get", "core.hooksPath")
+    except RuntimeError:
+        configured = ""
+    expected = (root / HOOKS_DIR).resolve()
+    candidate = Path(configured)
+    resolved = (candidate if candidate.is_absolute() else root / candidate).resolve()
+    if not configured or resolved != expected:
+        issues.append(DoctorIssue("hooks", "hooks_path_not_configured"))
+    if not (root / PRE_PUSH_HOOK).is_file():
+        issues.append(DoctorIssue("hooks", "hook_file_missing"))
     return issues
 
 
@@ -301,13 +337,14 @@ def check(
         return DoctorReport((DoctorIssue("repository", "root_not_directory"),))
     issues = _check_python(repo, python_version)
     issues.extend(_check_git(repo, expected_branch))
+    issues.extend(_check_hooks(repo))
     try:
         if policy_check.check(repo):
             issues.append(DoctorIssue("security", "policy_failed"))
     except (OSError, RuntimeError, ValueError):
         issues.append(DoctorIssue("security", "policy_unavailable"))
     issues.extend(_check_environment(repo, env_file, environ))
-    return DoctorReport(tuple(issues), ("python", "git", "security", "environment"))
+    return DoctorReport(tuple(issues), ("python", "git", "hooks", "security", "environment"))
 
 
 def main(argv: list[str] | None = None) -> int:

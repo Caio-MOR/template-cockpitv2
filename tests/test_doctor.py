@@ -11,13 +11,17 @@ def _git(*args: str, cwd: Path) -> None:
 
 
 def _repo(tmp_path: Path, schema: str = "") -> Path:
+    """Cockpit válido mínimo: hook pre-push versionado e ativado (core.hooksPath)."""
     _git("init", "-q", "-b", "main", cwd=tmp_path)
     _git("config", "user.email", "test@example.invalid", cwd=tmp_path)
     _git("config", "user.name", "test", cwd=tmp_path)
     (tmp_path / ".gitignore").write_text("/*\n.env\n.env.*\n!/.env.example\n", encoding="utf-8")
     (tmp_path / ".env.example").write_text(schema, encoding="utf-8")
     (tmp_path / ".python-version").write_text("3.12.13\n", encoding="utf-8")
-    _git("add", "-f", ".gitignore", ".env.example", ".python-version", cwd=tmp_path)
+    (tmp_path / ".githooks").mkdir()
+    (tmp_path / ".githooks" / "pre-push").write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    _git("config", "core.hooksPath", ".githooks", cwd=tmp_path)
+    _git("add", "-f", ".gitignore", ".env.example", ".python-version", ".githooks/pre-push", cwd=tmp_path)
     _git("commit", "-qm", "fixture", cwd=tmp_path)
     return tmp_path
 
@@ -30,7 +34,7 @@ def test_empty_schema_is_a_valid_cockpit(tmp_path: Path) -> None:
     report = doctor.check(_repo(tmp_path), python_version=(3, 12, 13))
 
     assert report.ok
-    assert report.checked == ("python", "git", "security", "environment")
+    assert report.checked == ("python", "git", "hooks", "security", "environment")
 
 
 def test_required_and_optional_fields_use_names_only(tmp_path: Path) -> None:
@@ -82,6 +86,31 @@ def test_git_requires_a_named_branch_and_can_enforce_expected_branch(tmp_path: P
 
     _git("checkout", "--detach", cwd=repo)
     assert "detached_head" in _codes(doctor.check(repo, python_version=(3, 12, 13)))
+
+
+def test_hooks_path_must_point_at_the_versioned_hooks(tmp_path: Path) -> None:
+    """Clone que não ativou `core.hooksPath` empurra sem gate: o doctor reprova e
+    diz o comando de conserto."""
+    repo = _repo(tmp_path)
+    _git("config", "--unset", "core.hooksPath", cwd=repo)
+    report = doctor.check(repo, python_version=(3, 12, 13))
+    assert "hooks_path_not_configured" in _codes(report)
+    assert "git config core.hooksPath .githooks" in report.render()
+
+    _git("config", "core.hooksPath", "outra-pasta", cwd=repo)
+    assert "hooks_path_not_configured" in _codes(doctor.check(repo, python_version=(3, 12, 13)))
+
+    # Caminho absoluto equivalente também vale: o que importa é aonde aponta.
+    _git("config", "core.hooksPath", str(repo / ".githooks"), cwd=repo)
+    assert "hooks_path_not_configured" not in _codes(doctor.check(repo, python_version=(3, 12, 13)))
+
+
+def test_hook_file_must_exist(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    (repo / ".githooks" / "pre-push").unlink()
+    report = doctor.check(repo, python_version=(3, 12, 13))
+    assert "hook_file_missing" in _codes(report)
+    assert ".githooks/pre-push" in report.render()
 
 
 def test_security_policy_is_a_real_dependency_of_the_doctor(tmp_path: Path, monkeypatch) -> None:

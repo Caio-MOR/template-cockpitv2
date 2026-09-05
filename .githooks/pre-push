@@ -63,8 +63,8 @@ py() {
 }
 
 # --- modo do auditor: template (placeholders permitidos) ou instância ---------------
-# O mesmo critério do CI: enquanto AGENTS.md ainda carrega {{NOME_DO_REPO}}, o repo é
-# o template; depois de instanciado, o auditor roda sem desculpa para placeholder.
+# O mesmo critério do CI: enquanto AGENTS.md ainda carrega o placeholder do nome do
+# repo, isto é o template; instanciado, o auditor roda sem desculpa para placeholder.
 AUDIT_FLAGS="--tipo cockpit"
 if grep -q '{{NOME_DO_REPO}}' AGENTS.md 2>/dev/null; then  # padrao-ouro:ignorar
     AUDIT_FLAGS="$AUDIT_FLAGS --template"

@@ -1,18 +1,24 @@
 #!/usr/bin/env python3
-"""Remove v2 build evidence from a generated repository.
+"""Remove v2 build evidence from a generated repository and activate the pre-push hook.
 
 Run ``python tools/initialize_template.py --dry-run .`` first. Apply mode deletes
-only the explicit allowlisted build-record directory and writes a blank local state.
+only the explicit allowlisted build-record directory, writes a blank local state and
+runs ``git config core.hooksPath .githooks`` so the versioned pre-push hook (the first
+line of the gates) is active in this clone. ``tools/doctor.py`` reports a clone that
+skipped this step.
 """
 from __future__ import annotations
 
 import argparse
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 
 BUILD_RECORDS = (".specs/features/template-v2",)
 STATE = ".specs/STATE.md"
+HOOKS_DIR = ".githooks"
+GIT_TIMEOUT = 15
 INITIAL_STATE = """# STATE
 
 Project-local decisions and handoff state begin here.
@@ -64,6 +70,7 @@ def initialize(root: Path, dry_run: bool) -> int:
     planned = planned_paths(root)
     for path in planned:
         print(path.relative_to(root).as_posix())
+    print(f"git config core.hooksPath {HOOKS_DIR}")
     if dry_run:
         return 0
     state = root / STATE
@@ -78,6 +85,29 @@ def initialize(root: Path, dry_run: bool) -> int:
             shutil.rmtree(target)
     state.parent.mkdir(parents=True, exist_ok=True)
     state.write_text(INITIAL_STATE, encoding="utf-8")
+    return activate_hooks(root)
+
+
+def activate_hooks(root: Path) -> int:
+    """Point ``core.hooksPath`` at the versioned hooks; 0 on success.
+
+    A directory that is not a git repository cannot hold the setting: the call
+    reports it (exit 1) instead of pretending the hook is active.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(root), "config", "core.hooksPath", HOOKS_DIR],
+            capture_output=True, text=True, timeout=GIT_TIMEOUT, check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        result = None
+    if result is None or result.returncode != 0:
+        print(
+            f"initialize_template: nao foi possivel ativar o hook (git config core.hooksPath {HOOKS_DIR}); "
+            "rode o comando na raiz do clone e confira com tools/doctor.py",
+            file=sys.stderr,
+        )
+        return 1
     return 0
 
 
