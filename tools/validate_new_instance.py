@@ -23,8 +23,10 @@ GATES = (
 
 def static_findings(root: Path) -> list[str]:
     findings = [path for path in BUILD_RECORDS if (root / path).exists()]
-    for path in root.rglob("*"):
-        if not path.is_file() or ".git" in path.parts or path.suffix.lower() not in TEXT_EXTENSIONS:
+    listed = subprocess.run(["git", "-C", str(root), "ls-files", "-z"], capture_output=True)
+    files = [root / item for item in listed.stdout.decode().split("\0") if item] if listed.returncode == 0 else root.rglob("*")
+    for path in files:
+        if not path.is_file() or ".git" in path.parts or ".venv" in path.parts or ".tmp" in path.parts or path.suffix.lower() not in TEXT_EXTENSIONS:
             continue
         try:
             if PLACEHOLDER.search(path.read_text(encoding="utf-8")):

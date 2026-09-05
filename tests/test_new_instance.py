@@ -61,3 +61,27 @@ def test_validator_rejects_build_records_and_placeholders_but_allows_later_files
 
     (instance / ".specs" / "features" / "template-v2").mkdir(parents=True)
     assert ".specs/features/template-v2" in validate_new_instance.static_findings(instance)
+
+
+def test_initializer_preserves_custom_state_and_rejects_symlinked_targets(tmp_path):
+    instance = _copy_template(tmp_path)
+    state = instance / ".specs" / "STATE.md"
+    state.write_text("# STATE\n\n## Decisions\n\n- custom", encoding="utf-8")
+    assert initialize_template.initialize(instance, dry_run=False) == 1
+    assert state.read_text(encoding="utf-8").endswith("custom")
+
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    specs = instance / ".specs"
+    specs.rename(tmp_path / "saved-specs")
+    specs.symlink_to(outside, target_is_directory=True)
+    assert initialize_template.initialize(instance, dry_run=False) == 1
+    assert not list(outside.iterdir())
+
+
+def test_validator_ignores_local_venv_placeholder(tmp_path):
+    instance = _copy_template(tmp_path)
+    local = instance / ".venv" / "dependency.md"
+    local.parent.mkdir()
+    local.write_text("{{DEPENDENCY_PLACEHOLDER}}", encoding="utf-8")
+    assert ".venv/dependency.md" not in validate_new_instance.static_findings(instance)
