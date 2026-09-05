@@ -36,19 +36,19 @@ T1 -> T2 -> T3
 ### Phase 2: Independent verification and delivery
 
 ```
-T4 -> T5 -> T6
+T5 -> T6
 ```
 
 ### Phase 3: Portable agent conventions and clean instances
 
 ```
-T7 -> T8
+T7 -> T8 -> T4
 ```
 
 ## Phase Execution Map
 
 ```
-T1 -> T2 -> T3 -> T4 -> T5 -> T6 -> T7 -> T8
+T1 -> T2 -> T3 -> T5 -> T6 -> T7 -> T8 -> T4
 ```
 
 ## Task Breakdown
@@ -113,7 +113,7 @@ T1 -> T2 -> T3 -> T4 -> T5 -> T6 -> T7 -> T8
 **What**: Preserve the already-identical `gate_veredito.py`, port the matching canaries and collection guard, then recalibrate measured collection and required gate counts for v2.
 **Where**: `conftest.py`
 **Files**: `conftest.py`; `pytest.ini`; `tools/gate_veredito.py`; `tools/canario_gate/canario_verde.py`; `tools/canario_gate/canario_vermelho.py`; `tests/test_criacao_nova.py`; `tests/test_ci_pinado.py`
-**Depends on**: T3
+**Depends on**: T8
 **Reuses**: `template-cockpit/tools/gate_veredito.py` byte-identically and `Cakopit-codex/conftest.py`
 **Requirement**: TV2-05
 
@@ -131,7 +131,7 @@ T1 -> T2 -> T3 -> T4 -> T5 -> T6 -> T7 -> T8
 **What**: Port the dependency inputs/lock and CI workflows that run the external verdict and all supporting checks on supported hosted runners; omit self-hosted workflow and any gitleaks exception.
 **Where**: `.github/workflows/tests.yml`
 **Files**: `.python-version`; `requirements.in`; `requirements.txt`; `pyproject.toml`; `.github/workflows/tests.yml`; `.github/workflows/tests-macos.yml`; `.github/workflows/gitleaks.yml`; `.github/workflows/security.yml`; `tests/test_ci_pinado.py`
-**Depends on**: T4
+**Depends on**: T3
 **Reuses**: portable `Cakopit-codex` lock and hosted workflows
 **Requirement**: TV2-06
 
@@ -219,8 +219,8 @@ T1 -> T2 -> T3 -> T4 -> T5 -> T6 -> T7 -> T8
 | T1 | None | none | ✅ Match |
 | T2 | T1 | T1 -> T2 | ✅ Match |
 | T3 | T2 | T2 -> T3 | ✅ Match |
-| T4 | T3 | T3 -> T4 | ✅ Match |
-| T5 | T4 | T4 -> T5 | ✅ Match |
+| T4 | T8 | T8 -> T4 | ✅ Match |
+| T5 | T3 | T3 -> T5 | ✅ Match |
 | T6 | T5 | T5 -> T6 | ✅ Match |
 | T7 | T6 | T6 -> T7 | ✅ Match |
 | T8 | T7 | T7 -> T8 | ✅ Match |
