@@ -50,13 +50,33 @@ jobs:
           persist-credentials: false
 
       - name: Python (versão do .python-version)
+        if: runner.os != 'Windows'
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version-file: .python-version
           cache: pip
 
+      # O actions/setup-python não oferece todos os patches no Windows.
+      # O uv baixa o CPython exato do .python-version e a .venv fixa qual
+      # interpretador executa instalação e gates nas etapas seguintes.
+      - name: uv (runtime gerenciado no Windows)
+        if: runner.os == 'Windows'
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+
+      - name: Python (patch exato gerenciado no Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          uv python install
+          uv venv --managed-python --python (Get-Content .python-version) .venv
+
       - name: Dependências (só requirements.txt)
+        if: runner.os != 'Windows'
         run: python -m pip install --require-hashes -r requirements.txt
+
+      - name: Dependências (só requirements.txt, Windows)
+        if: runner.os == 'Windows'
+        run: uv pip install --python .venv\Scripts\python.exe --require-hashes -r requirements.txt
 
       # O veredito, e não `pytest -q` direto: quem julga a suíte não pode ser o
       # próprio pytest. Ele roda a guarda de conteúdo (AST), o canário e a suíte em
@@ -64,7 +84,12 @@ jobs:
       # Com um hook de resultado no conftest.py da raiz, `pytest -q` devolve exit 0
       # com veneno ativo.
       - name: Veredito dos gates (guarda de conteúdo + canário + suíte)
+        if: runner.os != 'Windows'
         run: python tools/gate_veredito.py
+
+      - name: Veredito dos gates (guarda de conteúdo + canário + suíte, Windows)
+        if: runner.os == 'Windows'
+        run: .venv\Scripts\python.exe tools/gate_veredito.py
 
   lint-routers:
     name: lint-de-routers

@@ -27,6 +27,7 @@ WORKFLOWS = sorted((RAIZ / ".github" / "workflows").glob("*.y*ml"))
 PINS = {
     ("actions/checkout", "v7.0.1"): "3d3c42e5aac5ba805825da76410c181273ba90b1",
     ("actions/setup-python", "v7.0.0"): "5fda3b95a4ea91299a34e894583c3862153e4b97",
+    ("astral-sh/setup-uv", "v10.0.1"): "20cfd1bf945f4377ade1205e4dbc17946fc9a30d",
 }
 
 USES = re.compile(
@@ -265,6 +266,21 @@ def test_ci_chama_o_veredito_e_nao_o_pytest_direto():
     corridas = [l.split("run:", 1)[1].strip() for l in texto.splitlines() if "run:" in l]
     assert not any(c in ("pytest -q", "pytest") for c in corridas), corridas
     assert "working-directory" not in texto, "gate rodado de subpasta não mede a árvore inteira"
+
+
+def test_windows_instala_o_patch_exato_com_runtime_gerenciado_pelo_uv():
+    """Windows 2025 não fornece todo patch no cache do setup-python.
+
+    O fallback precisa baixar o patch declarado pelo projeto, criar a `.venv`
+    canônica e executar tanto a instalação quanto o veredito por ela.
+    """
+    texto = (RAIZ / ".github" / "workflows" / "tests.yml").read_text(encoding="utf-8")
+    assert "if: runner.os == 'Windows'" in texto
+    assert "uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1" in texto
+    assert "uv python install" in texto
+    assert "--managed-python --python (Get-Content .python-version) .venv" in texto
+    assert "uv pip install --python .venv\\Scripts\\python.exe --require-hashes -r requirements.txt" in texto
+    assert ".venv\\Scripts\\python.exe tools/gate_veredito.py" in texto
 
 
 def test_settings_json_parseavel():
