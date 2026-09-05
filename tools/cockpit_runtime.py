@@ -42,6 +42,57 @@ class LockBusyError(RuntimeErrorBase):
     """Raised when a live run already owns an idempotency lock."""
 
 
+def _windows_process_state(pid: int) -> bool | None:
+    """Return Windows process liveness, or None when it cannot be determined safely.
+
+    `os.kill(pid, 0)` is a POSIX liveness probe, but on Windows signal 0 is
+    CTRL_C_EVENT and can interrupt the shared console. Querying a process handle
+    avoids broadcasting a console signal. Unknown and access-denied states remain
+    conservative so a second run cannot steal a possibly live lock.
+    """
+    import ctypes
+    from ctypes import wintypes
+
+    process_query_limited_information = 0x1000
+    error_invalid_parameter = 87
+    still_active = 259
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.OpenProcess.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
+    kernel32.OpenProcess.restype = wintypes.HANDLE
+    kernel32.GetExitCodeProcess.argtypes = (wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD))
+    kernel32.GetExitCodeProcess.restype = wintypes.BOOL
+    kernel32.CloseHandle.argtypes = (wintypes.HANDLE,)
+    kernel32.CloseHandle.restype = wintypes.BOOL
+
+    handle = kernel32.OpenProcess(process_query_limited_information, False, pid)
+    if not handle:
+        return False if ctypes.get_last_error() == error_invalid_parameter else None
+    try:
+        exit_code = wintypes.DWORD()
+        if not kernel32.GetExitCodeProcess(handle, ctypes.byref(exit_code)):
+            return None
+        return exit_code.value == still_active
+    finally:
+        kernel32.CloseHandle(handle)
+
+
+def _pid_is_alive(pid: int, *, platform: str | None = None) -> bool:
+    """Check a local PID without signaling it; uncertainty means live.
+
+    The optional platform parameter keeps platform tests isolated from global
+    `os.name`, which path handling in the rest of the process also relies on.
+    """
+    if (platform or os.name) == "nt":
+        return _windows_process_state(pid) is not False
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except (PermissionError, OSError):
+        return True
+    return True
+
+
 class RetryExhaustedError(RuntimeErrorBase):
     """Raised after a transient operation exceeds its bounded retry budget."""
 
@@ -259,18 +310,9 @@ class IdempotencyLock:
             host = payload.get("host") if isinstance(payload, Mapping) else None
         except (OSError, TypeError, ValueError, json.JSONDecodeError):
             pid, host = 0, None
-        if host == socket.gethostname() and pid > 0:
-            try:
-                os.kill(pid, 0)
-            except ProcessLookupError:
-                pass
-            except PermissionError:
-                # Lack of permission means the process exists; do not steal its lock.
-                return False
-            except OSError:
-                pass
-            else:
-                return False
+        if host == socket.gethostname() and pid > 0 and _pid_is_alive(pid):
+            # A live or indeterminate owner is never safe to displace.
+            return False
         stale = self.path.with_name(f"{self.path.name}.stale.{int(self._clock())}.{os.getpid()}")
         try:
             os.replace(self.path, stale)

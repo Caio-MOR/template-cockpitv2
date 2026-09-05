@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 
+from tools import cockpit_runtime
 from tools.cockpit_runtime import (
     BackupPolicy,
     ConfigField,
@@ -94,6 +95,19 @@ def test_lock_does_not_recover_old_lock_when_owner_process_is_alive(tmp_path: Pa
     with pytest.raises(LockBusyError):
         lock.acquire()
     assert not list(tmp_path.glob("run.lock.stale.*"))
+
+
+@pytest.mark.parametrize(("state", "expected"), [(True, True), (False, False), (None, True)])
+def test_windows_pid_liveness_never_uses_the_posix_signal_probe(
+    monkeypatch: pytest.MonkeyPatch, state: bool | None, expected: bool
+) -> None:
+    """Windows signal 0 is CTRL_C_EVENT, not the harmless POSIX liveness probe."""
+    calls: list[tuple[int, int]] = []
+    monkeypatch.setattr(cockpit_runtime, "_windows_process_state", lambda _pid: state)
+    monkeypatch.setattr(cockpit_runtime.os, "kill", lambda pid, signal: calls.append((pid, signal)))
+
+    assert cockpit_runtime._pid_is_alive(123, platform="nt") is expected
+    assert calls == []
 
 
 def test_lock_recovers_stale_owner_and_preserves_forensics(tmp_path: Path) -> None:
