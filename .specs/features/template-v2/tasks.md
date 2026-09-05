@@ -102,7 +102,7 @@ T1 -> T2 -> T3 -> T5 -> T6 -> T7 -> T8 -> T4
 
 - [x] `python3 tools/doctor.py` has a stable verdict and never prints environment values.
 - [x] Component tests cover doctor, policy, operational-audit, and gold-audit pass/fail behavior without asserting a whole-repository score before CI is present.
-- [ ] The final Phase 2 integration gate after T6 reports operational 10.0 and gold template 10.0.
+- [x] The final Phase 2 integration gate after T6 reports operational 10.0 and gold template 10.0.
 - [x] Tests prove `--template` is accepted only by the gold audit, not operational audit.
 
 **Tests**: unit
