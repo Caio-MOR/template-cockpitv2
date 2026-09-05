@@ -14,6 +14,7 @@ Falha fechada: entrada inválida ou exceção interna sai com exit 2. Um hook qu
 conseguiu validar o comando não deve liberar uma operação potencialmente destrutiva.
 """
 import json
+import os
 import re
 import shlex
 import subprocess
@@ -90,7 +91,11 @@ def _diretorios_de_commit(cmd: str, cwd: str) -> list:
     directories: list = []
     for trecho in re.split(r"&&|\|\||[;\n]", cmd):
         try:
-            tokens = shlex.split(trecho)
+            # POSIX shlex treats Windows path separators as escapes, turning
+            # ``C:\\tmp\\repo`` into ``C:tmprorepo``. Preserve those paths
+            # while still accepting the quoted command form on Windows.
+            tokens = shlex.split(trecho, posix=os.name != "nt")
+            tokens = [token.strip("\"'") for token in tokens]
         except ValueError:
             if _GIT_SUBCOMMAND.search(trecho) and "commit" in trecho:
                 directories.append(None)
