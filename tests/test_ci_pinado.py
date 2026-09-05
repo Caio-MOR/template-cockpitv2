@@ -268,8 +268,8 @@ def test_ci_chama_o_veredito_e_nao_o_pytest_direto():
     assert "working-directory" not in texto, "gate rodado de subpasta não mede a árvore inteira"
 
 
-def test_windows_instala_o_patch_exato_com_runtime_gerenciado_pelo_uv():
-    """Windows 2025 não fornece todo patch no cache do setup-python.
+def test_windows_e_macos_instalam_o_patch_exato_com_runtime_gerenciado_pelo_uv():
+    """Windows 2025 e macOS 14 não oferecem todo patch no setup-python.
 
     O fallback precisa baixar o patch declarado pelo projeto, criar a `.venv`
     canônica e executar tanto a instalação quanto o veredito por ela.
@@ -281,6 +281,16 @@ def test_windows_instala_o_patch_exato_com_runtime_gerenciado_pelo_uv():
     assert "--managed-python --python (Get-Content .python-version) .venv" in texto
     assert "uv pip install --python .venv\\Scripts\\python.exe --require-hashes -r requirements.txt" in texto
     assert ".venv\\Scripts\\python.exe tools/gate_veredito.py" in texto
+
+    macos = (RAIZ / ".github" / "workflows" / "tests-macos.yml").read_text(encoding="utf-8")
+    assert macos.count("uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1") == 2
+    assert macos.count("uv python install") == 2
+    assert macos.count('uv venv --managed-python --python "$(cat .python-version)" .venv') == 2
+    assert macos.count("uv pip install --python .venv/bin/python --require-hashes -r requirements.txt") == 2
+    assert ".venv/bin/python tools/gate_veredito.py" in macos
+    assert ".venv/bin/python tools/lint_routers.py" in macos
+    assert ".venv/bin/python tools/operational_audit.py ." in macos
+    assert ".venv/bin/ruff check ." in macos
 
 
 def test_settings_json_parseavel():

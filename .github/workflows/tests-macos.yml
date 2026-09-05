@@ -27,17 +27,21 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      - name: Python (versão do .python-version)
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version-file: .python-version
-          cache: pip
+      # O actions/setup-python não oferece todos os patches no macOS arm64.
+      # O uv baixa o CPython exato do .python-version para a .venv canônica.
+      - name: uv (runtime gerenciado no macOS)
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+
+      - name: Python (patch exato gerenciado no macOS)
+        run: |
+          uv python install
+          uv venv --managed-python --python "$(cat .python-version)" .venv
 
       - name: Dependências (só requirements.txt)
-        run: python -m pip install --require-hashes -r requirements.txt
+        run: uv pip install --python .venv/bin/python --require-hashes -r requirements.txt
 
       - name: Veredito dos gates (guarda de conteúdo + canário + suíte)
-        run: python tools/gate_veredito.py
+        run: .venv/bin/python tools/gate_veredito.py
 
   lint-routers:
     name: lint-de-routers
@@ -50,26 +54,29 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      - name: Python (versão do .python-version)
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version-file: .python-version
+      - name: uv (runtime gerenciado no macOS)
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+
+      - name: Python (patch exato gerenciado no macOS)
+        run: |
+          uv python install
+          uv venv --managed-python --python "$(cat .python-version)" .venv
 
       - name: Dependências travadas
-        run: python -m pip install --require-hashes -r requirements.txt
+        run: uv pip install --python .venv/bin/python --require-hashes -r requirements.txt
 
       - name: Lint de routers (referências × índice git)
-        run: python tools/lint_routers.py
+        run: .venv/bin/python tools/lint_routers.py
 
       # A régua do padrão ouro, no repo-template: placeholders permitidos. No repo
       - name: Auditor do padrão ouro
-        run: python tools/padrao_ouro_audit.py --tipo cockpit .
+        run: .venv/bin/python tools/padrao_ouro_audit.py --tipo cockpit .
 
       - name: Política vendor-neutral de segredos
-        run: python tools/policy_check.py .
+        run: .venv/bin/python tools/policy_check.py .
 
       - name: Auditor operacional
-        run: python tools/operational_audit.py .
+        run: .venv/bin/python tools/operational_audit.py .
 
       - name: Lint de estilo (ruff)
-        run: ruff check .
+        run: .venv/bin/ruff check .
