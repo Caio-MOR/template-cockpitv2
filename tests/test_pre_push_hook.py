@@ -80,6 +80,9 @@ def repo_com_hook(tmp_path: Path) -> tuple[Path, Path]:
     for gate in GATES:
         (repo / "tools" / gate).write_text(FALSO_VERDE, encoding="utf-8")
     (repo / "AGENTS.md").write_text("# repo\n\ntipo: cockpit\n", encoding="utf-8")
+    # O ruff é condicional no hook (roda se existir no interpretador); os scripts falsos
+    # não são o que está sob teste, então o lint fica neutro dentro do repo temporário.
+    (repo / "ruff.toml").write_text("[lint]\nselect = []\n", encoding="utf-8")
     hooks = repo / ".githooks"
     hooks.mkdir()
     shutil.copy(HOOK, hooks / "pre-push")
