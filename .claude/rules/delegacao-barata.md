@@ -1,38 +1,43 @@
-# Delegação barata (sessão principal orquestra, subagente executa)
+# Delegação barata (sessão principal orquestra, subagentes executam)
 
-O custo da sessão principal sobe rápido quando ela mesma executa. **O padrão é: a sessão principal pensa, especifica, despacha, lê o resultado e conversa com o dono do repo. Quem executa é um subagente mais barato.** A exceção existe, mas tem de ser justificada em uma linha, não presumida.
+A sessão principal é dona da intenção, do escopo e do aceite final: ela pensa,
+especifica, despacha, lê o resultado e conversa com o dono do repo. O trabalho
+mecânico sai para subagentes quando o harness os oferece; quando não oferece, a
+sessão executa inline com o mesmo contrato. Esta regra não cita modelo nem
+fornecedor de propósito: isso é configuração do harness e muda mais rápido que ela.
 
 ## Regra
 
-1. **Antes de qualquer trabalho com mais de ~3 chamadas de ferramenta, pergunte: "um Sonnet com uma boa ordem faz isso?"** Se sim, delegue. "É pequeno, faço eu" é justamente o raciocínio que a regra proíbe.
-2. **Fixe o modelo em toda chamada de `Agent`:** `model: "sonnet"` por padrão; `haiku` para varredura trivial. Sem `model` o subagente herda o modelo caro da sessão e a delegação não economiza nada.
-3. **Paralelize.** Frentes independentes saem em uma única resposta, em background. Espere só quando o próximo passo depende do resultado.
-4. **Verificação também é delegada:** o subagente `verificador` (modelo fixo `sonnet` no frontmatter) confere a entrega do executor. Autor ≠ verificador continua valendo; a sessão principal lê o veredito, não reproduz a evidência.
-5. **Não polua a sessão principal com leitura.** Nada de `Read` de arquivo grande, `cat` de log ou transcript de subagente. Se precisa saber algo de um arquivo, um subagente lê e devolve a conclusão.
+1. **Antes de trabalho com mais de ~3 chamadas de ferramenta, pergunte:** "um
+   subagente com uma boa ordem faz isso?" Se sim, delegue. "É pequeno, faço eu" é
+   justamente o raciocínio que a regra proíbe.
+2. **Modelo pelo tipo de trabalho:** o mais barato que o harness oferecer para
+   trabalho mecânico (explorar, aplicar edição especificada, rodar gates, atualizar
+   docs); o mais forte para especificar, decidir arquitetura e depurar causa
+   desconhecida. Onde o harness permite escolher o modelo por agente, fixe-o em cada
+   despacho — sem isso o subagente herda o modelo caro da sessão e a delegação não
+   economiza nada. O tier concreto é configuração, não doutrina: vive na variável de
+   ambiente de subagente do harness e no campo de modelo do frontmatter de cada
+   agente; troque esses valores conforme o harness disponível — esta regra não
+   nomeia modelo nem fornecedor.
+3. **Paralelize.** Frentes independentes saem numa única resposta, em background.
+   Espere só quando o próximo passo depende do resultado.
+4. **Verificação também é delegada, e autor ≠ verificador.** Quem escreveu não
+   confere; um verificador independente reproduz a evidência em vez de acreditar nela.
+   A sessão principal lê o veredito, não refaz a prova.
+5. **Não polua a sessão principal com leitura.** Arquivo grande, log, transcript: um
+   subagente lê e devolve a conclusão.
 
 ## O que fica na sessão principal
 
-- Decidir, discordar, propor caminho; escrever a spec ou o prompt cirúrgico do subagente (é a qualidade desse texto que autoriza descer de modelo).
-- Falar com o dono do repo; ler resultados e vereditos; fechar memória e documentação (arquivos curtos).
-- Ações de 1 ou 2 comandos cuja delegação custaria mais que a execução (um `git worktree remove`, um `gh pr edit`).
-- Texto cuja qualidade é o produto (regra, spec, decisão registrada). Mesmo aí, a sessão escreve e um subagente confere.
-
-## O que sempre vai para subagente
-
-| Tarefa | Subagente | Modelo |
-|---|---|---|
-| Explorar, auditar, levantar fatos (repo, `gh`, logs, histórico) | `general-purpose` ou `Explore` | sonnet (haiku se trivial) |
-| Executar tarefa especificada (edições, commits, PR, esperar CI) | `general-purpose` | sonnet |
-| Verificar entrega | `verificador` | sonnet (fixo) |
-| Compactar memória, atualizar routers, docs mecânicos | `general-purpose` | sonnet |
-| Rodar gates e colar evidência | `general-purpose` | haiku/sonnet |
-
-## Exceção (declarar em uma linha ao dono do repo)
-
-Fica na sessão principal apenas quando a tarefa exige o modelo forte **no ato**: depuração de causa desconhecida com hipóteses encadeadas, decisão de arquitetura, spec de feature ambígua. Ainda assim, tudo que for mecânico em volta (levantar contexto, aplicar a correção decidida, verificar) sai para subagente. Se a exceção passa de uma ou duas por sessão, o problema é a spec, não a tarefa.
+- Decidir, discordar, propor caminho; escrever a spec ou o prompt cirúrgico do
+  subagente (a qualidade desse texto é o que autoriza descer de modelo).
+- Falar com o dono do repo; ler resultados e vereditos; registrar decisões.
+- Ações de um ou dois comandos cuja delegação custaria mais que a execução.
 
 ## Contrato do prompt para o executor
 
-Repo e caminho exatos; isolamento (worktree/branch) quando outras sessões escrevem no mesmo repo; tarefas numeradas com commit por tarefa; critério de pronto verificável por comando; teto de rodadas em qualquer laço (3); o que **não** tocar; formato do relatório curto. Prompt sem critério de pronto não é spec, é pedido de favor.
-
-Relacionada: `como-operar.md` (delegar exploração, sessão enxuta).
+Repo e caminho exatos; isolamento (worktree/branch) quando outras sessões escrevem no
+mesmo repo; tarefas numeradas com commit por tarefa; critério de pronto verificável
+por comando; teto de rodadas em qualquer laço (3); o que **não** tocar; formato do
+relatório curto. Prompt sem critério de pronto não é spec, é pedido de favor.

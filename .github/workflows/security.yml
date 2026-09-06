@@ -1,0 +1,39 @@
+name: security
+
+# Opcional, sob demanda (`workflow_dispatch`): auditoria de vulnerabilidades das
+# dependências (pip-audit, precisa de rede) e análise estática (bandit). Ficam fora
+# do hook e do CI de PR por custo e por rede; os comandos locais equivalentes estão
+# no README. Dispare à mão ao atualizar o lock ou em revisão periódica.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  python-security:
+    name: python-security
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Python (versão exata do .python-version)
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version-file: .python-version
+          cache: pip
+
+      - name: Instalar dependências travadas
+        run: python -m pip install --require-hashes -r requirements.txt
+
+      - name: Auditar vulnerabilidades
+        run: pip-audit --strict --progress-spinner off
+
+      - name: Análise estática de segurança
+        run: bandit --quiet --recursive --severity-level medium --confidence-level medium tools workflows

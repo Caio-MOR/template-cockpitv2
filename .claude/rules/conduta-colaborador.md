@@ -40,7 +40,8 @@ se registra. Nunca guardar segredos.
 ## Segredos
 
 Ficam em `.env` (já ignorado pelo git) — nunca em código, log, commit ou
-mensagem. A varredura do CI reprova o que escapar.
+mensagem. O hook `pre-push` roda o gitleaks local quando ele existe na máquina e
+o CI de PR (`gitleaks.yml`) varre o histórico inteiro em toda pull request.
 
 ## Entrega com evidência
 

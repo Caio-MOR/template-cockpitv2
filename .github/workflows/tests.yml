@@ -1,34 +1,30 @@
 name: tests
 
-# Gate mecânico do repo: o veredito da suíte e o lint de routers rodam em todo push
-# na main e toda PR — a verificação deixa de depender de memória humana.
-# Um workflow por preocupação (o de segredos é o gitleaks.yml).
+# Estratégia de verificação (AD-001 em .specs/STATE.md, 2026-09-05):
 #
-# Por que a matriz de SO: gate que só roda num SO é gate PRESUMIDO, não verificado.
-# Cada plataforma produz achado que as outras não pegam (CRLF + shebang que só quebra
-# no Windows; `Path.is_absolute()` que é no-op fora dele). `gitleaks.yml` fica fora da
-# matriz de propósito: varre conteúdo do histórico, não comportamento de plataforma.
+#   1. O hook `.githooks/pre-push` é a PRIMEIRA LINHA: os gates rodam na máquina de
+#      quem empurra, antes de o push sair, no SO de quem desenvolve, sem gastar
+#      minuto hospedado. Ativado por `git config core.hooksPath .githooks` (o
+#      inicializador faz; `tools/doctor.py` acusa o clone que não fez).
+#   2. Este workflow é a REDE: roda os MESMOS gates, uma vez por pull request, num
+#      único runner Linux — cobre `git push --no-verify`, clone sem hook e diferença
+#      de SO. `tests/test_pre_push_hook.py` mede a paridade hook × CI.
+#   3. Gates iguais nos dois lugares. Mudou um gate aqui, muda no hook no mesmo PR.
 #
-# Matriz enxuta (herdada da PR Caio-MOR/Cakopit#14): macOS custa 10x o minuto do
-# ubuntu, sem rodar em todo push. Ele sai deste workflow e vira `tests-macos.yml`,
-# semanal — continua sendo verificado, só que não a cada commit. Em PR a matriz de
-# suíte segue ubuntu+windows (o par que pega os dois bugs citados acima); em push
-# direto na main (sem PR — ex.: merge de squash) só ubuntu roda, porque windows já
-# rodou na PR que originou o commit. `lint-routers` é stdlib pura e independe de SO:
-# uma plataforma basta.
+# Custo quase zero de minutos: só `pull_request` (a main recebe o que a PR já
+# provou; exigir branch atualizada no ruleset fecha a fresta), um job, `concurrency`
+# cancelando rodada obsoleta, teto curto. Sem `paths-ignore` de propósito: o lint de
+# routers depende de arquivos .md e o auditor operacional reprova filtro de caminho
+# em workflow obrigatório — uma mudança "só de doc" também pode quebrar gate.
+# `runs-on` pinado em versão (não `-latest`): imagem móvel não é reprodutível, e o
+# gate `tests/test_ci_pinado.py` reprova o label móvel.
+#
+# Opcionais, sob demanda (`workflow_dispatch`): `tests-macos.yml` (mesmos gates no
+# macOS) e `security.yml` (pip-audit precisa de rede; bandit). Um workflow por
+# preocupação; o de segredos é o `gitleaks.yml`, também por PR.
 
 on:
   pull_request:
-    paths-ignore:
-      - '.claude-memory/**'
-      - 'audits/**'
-      - '**/logs/**'
-  push:
-    branches: [main]
-    paths-ignore:
-      - '.claude-memory/**'
-      - 'audits/**'
-      - '**/logs/**'
 
 permissions:
   contents: read
@@ -38,18 +34,16 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  testes:
-    name: suite-pytest
+  gates:
+    name: gates-do-hook-no-ci
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
-    strategy:
-      # fail-fast: false para ver os veredictos de todos os SOs da rodada.
-      fail-fast: false
-      matrix:
-        os: ${{ fromJSON(github.event_name == 'pull_request' && '["ubuntu-latest","windows-latest"]' || '["ubuntu-latest"]') }}
-    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
 
       - name: Python (versão do .python-version)
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -57,43 +51,31 @@ jobs:
           python-version-file: .python-version
           cache: pip
 
-      - name: Dependências (só requirements.txt)
-        run: pip install -r requirements.txt
+      - name: Dependências (só requirements.txt, com hashes)
+        run: python -m pip install --require-hashes -r requirements.txt
 
       # O veredito, e não `pytest -q` direto: quem julga a suíte não pode ser o
       # próprio pytest. Ele roda a guarda de conteúdo (AST), o canário e a suíte em
       # subprocessos de ambiente limpo, e só devolve 0 com os três ramos verdes.
-      # Com um hook de resultado no conftest.py da raiz, `pytest -q` devolve exit 0
-      # com veneno ativo.
       - name: Veredito dos gates (guarda de conteúdo + canário + suíte)
         run: python tools/gate_veredito.py
-
-  lint-routers:
-    name: lint-de-routers
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      # O lint é stdlib pura: não depende de SO, roda numa plataforma só.
-      - name: Python (versão do .python-version)
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version-file: .python-version
 
       - name: Lint de routers (referências × índice git)
         run: python tools/lint_routers.py
 
-      # A régua do padrão ouro, no repo-template: placeholders permitidos. No repo
-      # instanciado, troque por `python tools/padrao_ouro_audit.py .` (sem --template).
+      # Mesmo critério do hook: com o placeholder do nome do repo em AGENTS.md este
+      # é o template (placeholders permitidos); instanciado, roda sem `--template`.
       - name: Auditor do padrão ouro
-        run: python tools/padrao_ouro_audit.py --tipo cockpit --template .
+        run: |
+          FLAGS="--tipo cockpit"
+          if grep -q '{{NOME_DO_REPO}}' AGENTS.md; then FLAGS="$FLAGS --template"; fi  # padrao-ouro:ignorar
+          python tools/padrao_ouro_audit.py $FLAGS .
 
-      # Pin exato (não a action de terceiro `ruff-action`): versão previsível,
-      # sem depender de uma tag móvel de outro repo.
-      - name: Instalar ruff
-        run: pip install ruff==0.16.6
+      - name: Política vendor-neutral de segredos
+        run: python tools/policy_check.py .
+
+      - name: Auditor operacional
+        run: python tools/operational_audit.py .
 
       - name: Lint de estilo (ruff)
-        run: ruff check .
+        run: python -m ruff check .

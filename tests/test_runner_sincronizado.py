@@ -24,6 +24,8 @@ from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parent.parent
 RUNNER = RAIZ / "tools" / "eval_runner.py"
+REGRA_DELEGACAO = RAIZ / ".claude" / "rules" / "delegacao-barata.md"
+CONFIG_CODEX_EXEMPLO = RAIZ / ".codex" / "config.example.toml"
 
 CRLF = bytes((13, 10))
 LF = bytes((10,))
@@ -32,8 +34,8 @@ LF = bytes((10,))
 # `sha256` do conteúdo normalizado em LF, e o commit da canônica de onde a cópia saiu.
 # Atualizar os dois no mesmo PR que propaga a cópia; o procedimento está na mensagem
 # de falha de `_divergencia`, para não depender de ninguém lembrar dele.
-SHA_CANONICO = "0be4d2d8c8a0bd4db2f275b8ec214e4f451befb248c6e9f8c3844eebec4ec14f"
-COMMIT_UPSTREAM = "57cbfa5742d043cec86f445ccbdd72cd62668d2d"
+SHA_CANONICO = "7f7943e2ff7336586ed406bf017cd8da3d3290f49a57f1c7646d6e312c5340cb"
+COMMIT_UPSTREAM = "666dbad10c7429138cfda7752afeccbdafd333e7"
 
 
 def _sha_normalizado(arquivo: Path) -> str:
@@ -69,6 +71,28 @@ def test_commit_upstream_e_sha_completo_de_git():
     sozinho quando o histórico da canônica cresce."""
     assert len(COMMIT_UPSTREAM) == 40, f"COMMIT_UPSTREAM tem {len(COMMIT_UPSTREAM)} chars"
     assert all(c in "0123456789abcdef" for c in COMMIT_UPSTREAM), COMMIT_UPSTREAM
+
+
+# Nomes de modelo e de fornecedor que a regra de delegação não pode citar: a escolha
+# é do harness e da máquina, e envelhece mais rápido que a regra.
+RE_MODELO_OU_FORNECEDOR = __import__("re").compile(
+    r"gpt|luna|claude|sonnet|haiku|opus|openai|anthropic|gemini|codex", __import__("re").IGNORECASE
+)
+
+
+def test_regra_de_delegacao_orquestra_verifica_e_nao_nomeia_modelo():
+    """Sessão principal orquestra, subagente executa o mecânico, autor ≠ verificador,
+    modelo mais barato do harness para o mecânico — e nenhum modelo/fornecedor nomeado.
+    O perfil Codex continua exemplo opt-in, sem modelo fixado."""
+    regra = REGRA_DELEGACAO.read_text(encoding="utf-8")
+    config = CONFIG_CODEX_EXEMPLO.read_text(encoding="utf-8")
+    assert not (RAIZ / ".codex" / "config.toml").exists()
+    for trecho in ("sessão principal", "subagente", "mais barato", "autor ≠ verificador", "inline"):
+        assert trecho in regra, f"regra sem `{trecho}`"
+    assert not RE_MODELO_OU_FORNECEDOR.search(regra), RE_MODELO_OU_FORNECEDOR.search(regra)
+    ativos = [linha for linha in config.splitlines() if linha.strip() and not linha.lstrip().startswith("#")]
+    assert not any("default_subagent_model" in linha for linha in ativos), ativos
+    assert "[agents]" in ativos and "enabled = true" in ativos
 
 
 def test_cabecalho_declara_a_natureza_de_atestacao():

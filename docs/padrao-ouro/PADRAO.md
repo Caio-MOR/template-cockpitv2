@@ -34,7 +34,7 @@ Exit 0 = placar ≥ 9; 1 = placar < 9; 2 = tipo não detectado ou raiz inexisten
 | PO-A04 | todos | 0,5 | Receita de ambiente escrita | `README.md` tem um título `##` contendo "Ambiente" ou "Como rodar" |
 | PO-B01 | todos | 0,5 | Regras modulares, fora do arquivo principal | `.claude/rules/` contém ao menos um `.md` |
 | PO-B02 | todos | 0,5 | Autor nunca é o verificador | `.claude/agents/verificador.md` existe |
-| PO-C01 | todos | 1 | Verificação roda sem depender de memória humana | ao menos um arquivo em `.github/workflows/*.yml` ou `*.yaml` |
+| PO-C01 | todos | 1 | Verificação roda sem depender de memória humana | ao menos um arquivo em `.github/workflows/*.yml` ou `*.yaml` com gatilho `push` ou `pull_request` em `on:` (`workflow_dispatch` sozinho não conta: quem dispara à mão é memória humana), **e** `.githooks/pre-push` versionado (os gates rodam antes do push, na máquina de quem empurra) |
 | PO-C02 | todos | 1 | CI não confia em tag móvel nem em permissão implícita | em todo workflow, cada `uses:` termina em `@` + 40 caracteres hexadecimais, e há uma chave `permissions:` no nível do workflow ou de cada job |
 | PO-C03 | todos | 1 | Segredo não entra no histórico sem alarme | algum workflow contém a palavra `gitleaks` |
 | PO-D01 | todos | 0,5 | Decisões sobrevivem à sessão | `.specs/STATE.md` existe |
@@ -83,4 +83,5 @@ Condensado da pesquisa de 30/08/2026 registrada no plano do padrão ouro: docume
 
 ## Versão
 
-- **v1 — 02/09/2026.** Primeira norma medível. Auditor de referência: `tools/padrao_ouro_audit.py` (`--versao` imprime `1`).
+- **v1 — 02/09/2026.** Primeira norma medível. Auditor de referência: `tools/padrao_ouro_audit.py`.
+- **v1.1 — 05/09/2026.** PO-C01 deixa de aceitar "existe um arquivo de workflow": passa a exigir gatilho `push` ou `pull_request` (um workflow só com `workflow_dispatch` é verificação que depende de alguém lembrar de disparar) e, junto, o hook `.githooks/pre-push` versionado — a primeira linha roda antes do push, o CI de PR é a rede. Motivo: uma versão do template trocou os gatilhos por `workflow_dispatch` para poupar minutos e reescreveu a régua para não ser punida; a régua não afrouxa para acomodar o custo, o modelo muda. `--versao` imprime `1.1`.

@@ -7,11 +7,14 @@
 
 # Raiz — um a um
 !/.gitignore
+!/.gitleaksignore
 !/.gitattributes
 !/CLAUDE.md
 !/AGENTS.md
 !/README.md
+!/SECURITY.md
 !/requirements.txt
+!/requirements.in
 !/pytest.ini
 !/conftest.py
 !/.python-version
@@ -20,7 +23,9 @@
 
 # Pastas versionadas
 !/.github/
+!/.githooks/
 !/.claude/
+!/.codex/
 !/tools/
 !/docs/
 !/tests/
@@ -40,6 +45,7 @@ workflows/*/logs/*
 .claude/settings.local.json
 __pycache__/
 *.pyc
+.DS_Store
 .pytest_cache/
 .tmp/
 evals/results/

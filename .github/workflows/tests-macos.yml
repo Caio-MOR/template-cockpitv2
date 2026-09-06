@@ -1,15 +1,11 @@
 name: tests-macos
 
-# Verificação semanal em macOS (herdada da PR Caio-MOR/Cakopit#14): o macOS saiu da
-# matriz de `tests.yml` porque custava 10x o minuto do ubuntu, sem rodar em todo push.
-# Ele não desaparece — vira gate agendado, porque "só roda num SO" é gate presumido
-# (achado real de outro cockpit: `Path.is_absolute()` no-op fora do Windows).
-# Mesma suíte + lint de `tests.yml`, só que na cadência de uma vez por semana em vez
-# de a cada commit.
+# Opcional, sob demanda (`workflow_dispatch`): os mesmos gates do hook e do tests.yml
+# no macOS. A primeira linha é o hook `.githooks/pre-push` na máquina de quem empurra
+# (que já cobre o SO de quem desenvolve); a rede é o `tests.yml` por PR. Este fica
+# para conferir o macOS quando ninguém do time desenvolve nele — dispare à mão.
 
 on:
-  schedule:
-    - cron: '0 9 * * 1' # segunda-feira, 09:00 UTC
   workflow_dispatch:
 
 permissions:
@@ -18,41 +14,65 @@ permissions:
 jobs:
   testes:
     name: suite-pytest
-    runs-on: macos-latest
+    runs-on: macos-14
     timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Python (versão do .python-version)
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version-file: .python-version
-          cache: pip
+          fetch-depth: 1
+          persist-credentials: false
+
+      # O actions/setup-python não oferece todos os patches no macOS arm64.
+      # O uv baixa o CPython exato do .python-version para a .venv canônica.
+      - name: uv (runtime gerenciado no macOS)
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+
+      - name: Python (patch exato gerenciado no macOS)
+        run: |
+          uv python install
+          uv venv --managed-python --python "$(cat .python-version)" .venv
 
       - name: Dependências (só requirements.txt)
-        run: pip install -r requirements.txt
+        run: uv pip install --python .venv/bin/python --require-hashes -r requirements.txt
 
       - name: Veredito dos gates (guarda de conteúdo + canário + suíte)
-        run: python tools/gate_veredito.py
+        run: .venv/bin/python tools/gate_veredito.py
 
   lint-routers:
     name: lint-de-routers
-    runs-on: macos-latest
+    runs-on: macos-14
     timeout-minutes: 5
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Python (versão do .python-version)
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version-file: .python-version
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: uv (runtime gerenciado no macOS)
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+
+      - name: Python (patch exato gerenciado no macOS)
+        run: |
+          uv python install
+          uv venv --managed-python --python "$(cat .python-version)" .venv
+
+      - name: Dependências travadas
+        run: uv pip install --python .venv/bin/python --require-hashes -r requirements.txt
 
       - name: Lint de routers (referências × índice git)
-        run: python tools/lint_routers.py
+        run: .venv/bin/python tools/lint_routers.py
 
       # A régua do padrão ouro, no repo-template: placeholders permitidos. No repo
-      # instanciado, troque por `python tools/padrao_ouro_audit.py .` (sem --template).
       - name: Auditor do padrão ouro
-        run: python tools/padrao_ouro_audit.py --tipo cockpit --template .
+        run: .venv/bin/python tools/padrao_ouro_audit.py --tipo cockpit .
+
+      - name: Política vendor-neutral de segredos
+        run: .venv/bin/python tools/policy_check.py .
+
+      - name: Auditor operacional
+        run: .venv/bin/python tools/operational_audit.py .
+
+      - name: Lint de estilo (ruff)
+        run: .venv/bin/ruff check .

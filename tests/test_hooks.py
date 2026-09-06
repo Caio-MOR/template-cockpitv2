@@ -4,7 +4,12 @@
 `PreCompact`/`SessionStart` com `echo`. Este arquivo prova que `guarda_bash.py` e
 `guarda_segredo.py` bloqueiam o que a spec pede (exit 2 + motivo no stderr) e deixam
 passar o resto (exit 0), e que a cascata de interpretador em `run_hook.sh` funciona de
-verdade via `sh` — inclusive no windows-latest do CI, onde `sh` vem do Git Bash.
+verdade via `sh` — inclusive no Windows, onde `sh` vem do Git Bash.
+
+Os subprocessos decodificam com `errors="replace"`: no Windows o hook escreve o
+motivo do bloqueio na codificação do console (cp1252) e o acento derrubava a leitura
+estrita em UTF-8, deixando `stderr=None` — o teste reprovava por causa do console,
+não do hook.
 
 Repositório git temporário (`tmp_path`) simula branch `main` e branch de feature;
 conteúdo sintético de segredo é sempre marcado `SINTETICO` para não acionar scanners
@@ -38,6 +43,7 @@ def _rodar_hook(hook: str, payload: dict, cwd: Path | None = None) -> subprocess
         capture_output=True,
         text=True,
         encoding="utf-8",
+        errors="replace",
         timeout=TETO,
         cwd=str(cwd) if cwd else None,
         env={**__import__("os").environ, "CLAUDE_PROJECT_DIR": str(RAIZ)},
@@ -47,7 +53,7 @@ def _rodar_hook(hook: str, payload: dict, cwd: Path | None = None) -> subprocess
 def _git(*args: str, cwd: Path) -> subprocess.CompletedProcess:
     return subprocess.run(
         ["git", *args], cwd=str(cwd), capture_output=True, text=True,
-        encoding="utf-8", timeout=TETO, check=True,
+        encoding="utf-8", errors="replace", timeout=TETO, check=True,
     )
 
 
@@ -79,6 +85,15 @@ def test_bloqueia_commit_direto_em_main(repo_git: Path):
     assert r.stderr.strip()
 
 
+def test_bloqueia_commit_com_opcao_global_em_main(repo_git: Path):
+    r = _rodar_hook(
+        "guarda_bash.py",
+        {"tool_input": {"command": "git -C . commit -m x"}, "cwd": str(repo_git)},
+    )
+    assert r.returncode == 2, r.stdout + r.stderr
+    assert r.stderr.strip()
+
+
 def test_bloqueia_commit_direto_em_master(repo_git: Path):
     _git("branch", "-m", "master", cwd=repo_git)
     r = _rodar_hook("guarda_bash.py", {"tool_input": {"command": "git commit -m x"}, "cwd": str(repo_git)})
@@ -90,6 +105,8 @@ def test_bloqueia_commit_direto_em_master(repo_git: Path):
     "git push --force origin feat/x",
     "git push -f",
     "git push --force-with-lease origin feat/x",
+    "git -C . push --force origin feat/x",
+    "git -C . push -ff origin feat/x",
 ])
 def test_bloqueia_push_force(repo_git_feature: Path, comando: str):
     r = _rodar_hook("guarda_bash.py", {"tool_input": {"command": comando}, "cwd": str(repo_git_feature)})
@@ -110,6 +127,7 @@ def test_bloqueia_no_verify(repo_git_feature: Path):
     "git push origin main",
     "git push origin HEAD:main",
     "git push origin master",
+    "git -C . push origin main",
 ])
 def test_bloqueia_push_destino_explicito_main_ou_master(repo_git_feature: Path, comando: str):
     r = _rodar_hook("guarda_bash.py", {"tool_input": {"command": comando}, "cwd": str(repo_git_feature)})
@@ -126,6 +144,23 @@ def test_permite_commit_em_branch_de_feature(repo_git_feature: Path):
     assert r.returncode == 0, r.stdout + r.stderr
 
 
+def test_bloqueia_commit_em_main_apontado_por_git_c(repo_git: Path):
+    """O alvo de `git -C` prevalece sobre um cwd externo sem repositório."""
+    r = _rodar_hook(
+        "guarda_bash.py",
+        {"tool_input": {"command": f"git -C {repo_git} commit -m x"}, "cwd": str(repo_git.parent)},
+    )
+    assert r.returncode == 2, r.stdout + r.stderr
+
+
+def test_permite_commit_em_feature_apontado_por_git_c(repo_git_feature: Path):
+    r = _rodar_hook(
+        "guarda_bash.py",
+        {"tool_input": {"command": f"git -C {repo_git_feature} commit -m x"}, "cwd": str(repo_git_feature.parent)},
+    )
+    assert r.returncode == 0, r.stdout + r.stderr
+
+
 def test_permite_push_sem_force_para_branch_de_feature(repo_git_feature: Path):
     r = _rodar_hook(
         "guarda_bash.py",
@@ -139,10 +174,10 @@ def test_permite_comando_git_inofensivo(repo_git: Path):
     assert r.returncode == 0, r.stdout + r.stderr
 
 
-def test_permite_commit_em_main_fora_de_repo_git(tmp_path: Path):
-    """cwd sem `.git`: não é possível descobrir a branch, então não bloqueia."""
+def test_bloqueia_commit_com_branch_desconhecida(tmp_path: Path):
+    """Operação de commit sem contexto verificável falha fechada."""
     r = _rodar_hook("guarda_bash.py", {"tool_input": {"command": "git commit -m x"}, "cwd": str(tmp_path)})
-    assert r.returncode == 0, r.stdout + r.stderr
+    assert r.returncode == 2, r.stdout + r.stderr
 
 
 # ---------------------------------------------------------------------------
@@ -190,10 +225,34 @@ def test_bloqueia_segredo_via_edits_do_multiedit():
 
 
 def test_bloqueia_segredo_fora_de_tests_mesmo_com_sintetico_no_conteudo():
-    """A exceção é só para caminho dentro de `tests/`; fora dela, `SINTETICO` não isenta."""
+    """Fora de um módulo/fixture permitido, `SINTETICO` não isenta."""
     r = _rodar_hook(
         "guarda_segredo.py",
         {"tool_input": {"file_path": "app.py", "content": "chave=AKIAABCDEFGHIJKLMNOP SINTETICO"}},  # gitleaks:allow
+    )
+    assert r.returncode == 2, r.stdout + r.stderr
+
+
+def test_bloqueia_bypass_por_traversal_de_caminho():
+    r = _rodar_hook(
+        "guarda_segredo.py",
+        {"tool_input": {"file_path": "tests/../app.py", "content": "AKIAABCDEFGHIJKLMNOP SINTETICO"}},  # gitleaks:allow
+    )
+    assert r.returncode == 2, r.stdout + r.stderr
+
+
+def test_bloqueia_caminho_absoluto_fora_do_projeto(tmp_path: Path):
+    r = _rodar_hook(
+        "guarda_segredo.py",
+        {"tool_input": {"file_path": str(tmp_path / "tests" / "test_fake.py"), "content": "SINTETICO"}},
+    )
+    assert r.returncode == 2, r.stdout + r.stderr
+
+
+def test_excecao_sintetica_exige_modulo_de_teste_ou_fixture():
+    r = _rodar_hook(
+        "guarda_segredo.py",
+        {"tool_input": {"file_path": "tests/not_a_test.py", "content": "AKIAABCDEFGHIJKLMNOP SINTETICO"}},  # gitleaks:allow
     )
     assert r.returncode == 2, r.stdout + r.stderr
 
@@ -220,28 +279,50 @@ def test_permite_segredo_sintetico_dentro_de_tests():
     assert r.returncode == 0, r.stdout + r.stderr
 
 
+def test_permite_fixture_sintetico_com_separador_windows():
+    r = _rodar_hook(
+        "guarda_segredo.py",
+        {"tool_input": {"file_path": r"tests\test_x.py", "content": "AKIA_SINTETICO_FAKE1234567890AB SINTETICO"}},
+    )
+    assert r.returncode == 0, r.stdout + r.stderr
+
+
 # ---------------------------------------------------------------------------
-# Falha aberta
+# Falha fechada
 
 
-def test_guarda_bash_falha_aberta_com_stdin_invalido():
+def test_guarda_bash_bloqueia_com_stdin_invalido():
     r = subprocess.run(
         [_sh(), str(RUN_HOOK), "guarda_bash.py"], input="isto nao e json",
-        capture_output=True, text=True, encoding="utf-8", timeout=TETO,
+        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=TETO,
         env={**__import__("os").environ, "CLAUDE_PROJECT_DIR": str(RAIZ)},
     )
-    assert r.returncode == 0, r.stdout + r.stderr
+    assert r.returncode == 2, r.stdout + r.stderr
     assert r.stderr.strip()
 
 
-def test_guarda_segredo_falha_aberta_com_stdin_invalido():
+def test_guarda_segredo_bloqueia_com_stdin_invalido():
     r = subprocess.run(
         [_sh(), str(RUN_HOOK), "guarda_segredo.py"], input="isto nao e json",
-        capture_output=True, text=True, encoding="utf-8", timeout=TETO,
+        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=TETO,
         env={**__import__("os").environ, "CLAUDE_PROJECT_DIR": str(RAIZ)},
     )
-    assert r.returncode == 0, r.stdout + r.stderr
+    assert r.returncode == 2, r.stdout + r.stderr
     assert r.stderr.strip()
+
+
+def test_guarda_segredo_bloqueia_conteudo_ausente():
+    r = _rodar_hook("guarda_segredo.py", {"tool_input": {"file_path": "README.md"}})
+    assert r.returncode == 2, r.stdout + r.stderr
+
+
+def test_run_hook_rejeita_script_fora_da_allowlist():
+    r = subprocess.run(
+        [_sh(), str(RUN_HOOK), "../outro.py"], input="{}",
+        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=TETO,
+        env={**__import__("os").environ, "CLAUDE_PROJECT_DIR": str(RAIZ)},
+    )
+    assert r.returncode == 2, r.stdout + r.stderr
 
 
 # ---------------------------------------------------------------------------

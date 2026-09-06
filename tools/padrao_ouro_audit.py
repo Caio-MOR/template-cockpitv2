@@ -29,7 +29,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
-VERSAO = "1"
+VERSAO = "1.1"
 TIPOS = ("cockpit", "app", "skills")
 PLACAR_MINIMO = 9.0
 TETO_GIT = 60  # segundos; subprocesso sem teto é gate que nunca responde
@@ -61,6 +61,13 @@ RE_TIPO = re.compile(r"^tipo:\s*(cockpit|app|skills)\s*$", re.MULTILINE)
 RE_USES = re.compile(r"^\s*-?\s*uses:\s*['\"]?([^'\"\s#]+)")
 RE_SHA40 = re.compile(r"@[0-9a-f]{40}$")
 RE_PERMISSIONS = re.compile(r"^\s*permissions:", re.MULTILINE)
+# Gatilhos que provam verificação automática (PO-C01). `workflow_dispatch` fica de
+# fora de propósito: disparo manual é memória humana com outro nome.
+GATILHOS_AUTOMATICOS = frozenset({"push", "pull_request"})
+HOOK_PRE_PUSH = ".githooks/pre-push"
+RE_ON_INLINE = re.compile(r"^on:\s*(\[.*\]|[A-Za-z_]+)\s*$", re.MULTILINE)
+RE_ON_BLOCO = re.compile(r"^on:\s*$", re.MULTILINE)
+RE_CHAVE_NIVEL_1 = re.compile(r"^  ([A-Za-z_]+):")
 RE_TITULO_AMBIENTE = re.compile(r"^##+\s.*(ambiente|como rodar)", re.IGNORECASE | re.MULTILINE)
 RE_MERMAID = re.compile(r"^\s*```mermaid", re.MULTILINE)
 RE_FORMATO = re.compile(r"%%\s*formato\s*:")
@@ -216,10 +223,41 @@ def chk_b02(repo, tipo, template):
     return [Reprovacao("PO-B02", ".claude/agents/verificador.md", "não existe")]
 
 
+def gatilhos_do_workflow(texto: str) -> set[str]:
+    """Nomes de evento no `on:` de topo de um workflow, sem parser YAML.
+
+    Três grafias cobertas: `on: push`, `on: [push, pull_request]` e o bloco
+    `on:` com um evento por linha indentada (com ou sem sub-chaves). É o que o
+    GitHub aceita e o que este repo e o seu template usam.
+    """
+    m = RE_ON_INLINE.search(texto)
+    if m:
+        valor = m.group(1).strip("[] ")
+        return {v.strip() for v in valor.split(",") if v.strip()}
+    m = RE_ON_BLOCO.search(texto)
+    if not m:
+        return set()
+    achados: set[str] = set()
+    for linha in texto[m.end():].split("\n")[1:]:
+        if linha.strip() and not linha.startswith((" ", "\t")):
+            break  # acabou o bloco de topo
+        k = RE_CHAVE_NIVEL_1.match(linha)
+        if k:
+            achados.add(k.group(1))
+    return achados
+
+
 def chk_c01(repo, tipo, template):
-    if repo.workflows_ci():
-        return []
-    return [Reprovacao("PO-C01", ".github/workflows/", "nenhum workflow `.yml`/`.yaml`")]
+    out = []
+    automaticos = [wf for wf in repo.workflows_ci()
+                   if gatilhos_do_workflow(repo.texto(wf) or "") & GATILHOS_AUTOMATICOS]
+    if not automaticos:
+        out.append(Reprovacao("PO-C01", ".github/workflows/",
+                              "nenhum workflow com gatilho `push` ou `pull_request` "
+                              "(`workflow_dispatch` sozinho não conta)"))
+    if not repo.existe(HOOK_PRE_PUSH):
+        out.append(Reprovacao("PO-C01", HOOK_PRE_PUSH, "hook pre-push não versionado"))
+    return out
 
 
 def chk_c02(repo, tipo, template):
@@ -362,8 +400,8 @@ def chk_k03(repo, tipo, template):
 def chk_k04(repo, tipo, template):
     out = [Reprovacao("PO-K04", f, "não existe")
            for f in ("tools/gate_veredito.py", "tools/lint_routers.py") if not repo.existe(f)]
-    cita = any("gate_veredito.py" in (repo.texto(w) or "") and "lint_routers.py" in (repo.texto(w) or "")
-               for w in repo.workflows_ci())
+    cita = any("gate_veredito.py" in (repo.texto(wf) or "") and "lint_routers.py" in (repo.texto(wf) or "")
+               for wf in repo.workflows_ci())
     if not cita:
         out.append(Reprovacao("PO-K04", ".github/workflows/", "nenhum workflow chama gate_veredito.py e lint_routers.py"))
     return out
