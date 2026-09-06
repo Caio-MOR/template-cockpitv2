@@ -6,7 +6,7 @@
 
 ## Goals
 
-- [ ] Give every repository generated from v2 deterministic local validation and optional manual hosted fallbacks for its portable controls.
+- [ ] Give every repository generated from v2 the same gates in two layers: a versioned `pre-push` hook that blocks the push locally, and a minimal hosted CI that runs once per pull request as the net.
 - [ ] Keep the agent delegation policy portable: main session orchestrates, the cheapest worker the harness offers executes mechanical work, author != verifier — without naming a model or vendor.
 - [ ] Prove a newly generated instance starts clean and passes its bootstrap validation without private configuration.
 
@@ -28,7 +28,7 @@
 | Delegation | Harness-neutral rule: main session orchestrates; subagents (when the harness offers them) do bounded mechanical work and independent verification using the cheapest model the harness offers; otherwise inline with the same contract. No model or vendor named | A named model ages faster than the rule and binds the template to one vendor. | yes, 2026-09-05 |
 | Eval runner | Keep plugin-repository ownership, pin the immutable canonical commit supplied by its pending upstream change, and enforce the documented synchronization contract | A copied runner must not silently become a competing source of truth or copy an unmerged local instance. | yes |
 | Bootstrap cleanup | Generated instances remove or archive v2-build feature records before their first project feature | Build planning is review evidence, not template user history. | yes |
-| Local-first verification | Run all gates on the user's chosen computer or local environment; hosted workflows are manual fallbacks and GitHub Actions must not run automatically | The owner chose to avoid hosted Actions minutes while retaining reproducible optional fallbacks. | yes, 2026-09-05 |
+| Verification model | Versioned `.githooks/pre-push` runs the gates before every push (activated by `initialize_template.py`, checked by `doctor.py`); `tests.yml` and `gitleaks.yml` run the same gates once per `pull_request` on one Linux runner; `tests-macos.yml` and `security.yml` stay `workflow_dispatch` (optional). No `push`/`schedule` triggers | Near-zero Actions minutes without returning verification to human memory; the gold standard rule PO-C01 (v1.1) requires an automatic trigger and the hook, and is not weakened. AD-001 in `.specs/STATE.md`. | yes, 2026-09-05 |
 
 **Open questions:** none - all resolved or logged above.
 
@@ -50,19 +50,19 @@
 
 **Independent Test**: Create a clean generated instance, run doctor, policy check, operational audit, both relevant gold-audit modes, router lint, and the external verdict; then introduce a synthetic policy violation and observe the policy check fail.
 
-### P1: Local-first verifiable delivery
+### P1: Verifiable delivery (hook + PR CI)
 
-**User Story**: As a contributor, I want the local validation suite to judge controls independently and optional hosted fallbacks to remain reproducible, so that weakened tests or platform drift cannot pass unnoticed without consuming Actions minutes automatically.
+**User Story**: As a contributor, I want the same gates to block my push locally and to run once per pull request in hosted CI, so that weakened tests or platform drift cannot pass unnoticed and Actions minutes stay near zero.
 
 **Why P1**: Controls without an independent verdict are only documentation.
 
 **Acceptance Criteria**:
 
 1. WHEN the full suite runs THEN `python tools/gate_veredito.py` SHALL pass only after its independent guards, canaries, and pytest suite pass.
-2. BEFORE delivery, an agent SHALL run the documented verdict, router lint, policy, operational, gold, style, dependency, static-security, and full-history secret checks in the user's chosen local environment; it SHALL record the commit, operating system, Python version, and result for every command, and SHALL block delivery when any command is unavailable or fails.
-3. WHEN a hosted workflow exists THEN it SHALL use only `workflow_dispatch`, retain the hash-locked dependency set and independent checks, and SHALL pin every third-party action to an approved full commit SHA with persisted checkout credentials disabled.
+2. WHEN `git push` runs in a clone with `core.hooksPath = .githooks` THEN `.githooks/pre-push` SHALL run the verdict, router lint, gold audit, policy check and operational audit (plus ruff and gitleaks when installed) and SHALL refuse the push naming the failing gate; `tools/doctor.py` SHALL report a clone whose `core.hooksPath` does not point at `.githooks`.
+3. WHEN a pull request is opened or updated THEN `tests.yml` SHALL run the same gates as the hook on a single pinned Linux runner and `gitleaks.yml` SHALL scan the full history with a checksum-verified binary; both SHALL pin every third-party action to an approved full commit SHA with persisted checkout credentials disabled, and no workflow SHALL trigger on `push` or `schedule`.
 
-**Independent Test**: Run the verdict locally and inspect workflow tests that reject automatic triggers, direct pytest fallback calls, mutable action references, and unpinned dependencies.
+**Independent Test**: Push to a temporary bare remote with a failing fake gate and observe the refusal (`tests/test_pre_push_hook.py`); inspect workflow tests that fix the trigger table per workflow, reject direct pytest calls, mutable action references, and unpinned dependencies (`tests/test_ci_pinado.py`).
 
 ### P2: Portable agent and eval conventions
 
@@ -86,7 +86,7 @@
 **Acceptance Criteria**:
 
 1. WHEN the documented initialization command runs in a generated repository then it SHALL use an explicit path allowlist, offer a dry run, remove only v2-build specification evidence, and initialize the project-local specification state.
-2. WHEN new-instance validation runs then it SHALL require resolved instance placeholders, runtime guards, locked dependencies, CI workflows, canonical eval ownership note, and the five green local gates.
+2. WHEN new-instance validation runs then it SHALL require resolved instance placeholders, runtime guards, locked dependencies, the PR workflows and the versioned hook (activated by initialization), canonical eval ownership note, and the five green local gates.
 3. IF new-instance validation finds baseline contamination or an unresolved required placeholder THEN it SHALL exit nonzero and identify the artifact path without deleting user files.
 
 **Independent Test**: Copy the finished template to a temporary directory, run the dry-run and initialization recipe, resolve placeholders, and validate the instance; add a v2-build record or unresolved placeholder in turn and observe failure. `CODEOWNERS` and a gitleaks exception added after initialization are not baseline-contamination failures.
@@ -105,8 +105,8 @@
 | TV2-02 | P1: Portable control baseline | Design | Pending |
 | TV2-03 | P1: Portable control baseline | Design | Pending |
 | TV2-04 | P1: Portable control baseline | Design | Pending |
-| TV2-05 | P1: Verifiable delivery | Execute | Verified |
-| TV2-06 | P1: Verifiable delivery | Execute | Verified |
+| TV2-05 | P1: Verifiable delivery (hook + PR CI) | Execute | Verified |
+| TV2-06 | P1: Verifiable delivery (hook + PR CI) | Execute | Re-verified 2026-09-05 (hook + PR CI) |
 | TV2-07 | P2: Portable agent and eval conventions | Execute | Verified |
 | TV2-08 | P2: Portable agent and eval conventions | Execute | Verified |
 | TV2-09 | P1: Clean generated-instance bootstrap | Execute | Verified |

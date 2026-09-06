@@ -45,7 +45,7 @@ T5 -> T6
 T7 -> T8 -> T4
 ```
 
-### Phase 4: Local-first verification
+### Phase 4: Hook + PR CI verification
 
 ```
 T8 -> T9
@@ -207,21 +207,23 @@ T1 -> T2 -> T3 -> T5 -> T6 -> T7 -> T8 -> T4
 **Tests**: temporary-copy integration
 **Gate**: `python3 tools/validate_new_instance.py . && python3 tools/gate_veredito.py`
 
-### T9: Make verification local-first
+### T9: Hook pre-push + minimal PR CI (replaces the "local-first" attempt)
 
-**What**: Replace automatic hosted execution with documented local verification and manual hosted fallbacks, while keeping the same deterministic security and quality commands.
-**Where**: `README.md`
-**Files**: `.github/workflows/`; `AGENTS.md`; `README.md`; `docs/`; `tools/operational_audit.py`; `tools/padrao_ouro_audit.py`; `tests/test_ci_pinado.py`; `tests/test_operational_audit.py`; `tests/test_padrao_ouro.py`; `.specs/features/template-v2/`
+**What**: Keep Actions minutes near zero without returning verification to human memory: a versioned `pre-push` hook runs the gates before every push (first line), `tests.yml` and `gitleaks.yml` run the same gates once per pull request (net), macOS and dependency-security workflows stay optional (`workflow_dispatch`). The gold rule PO-C01 is restored to v1 wording and evolved (v1.1) to require an automatic trigger AND the hook — it is not weakened to accommodate cost. Decision: AD-001 in `.specs/STATE.md`.
+**Where**: `.githooks/pre-push`
+**Files**: `.githooks/pre-push`; `.gitattributes`; `.gitignore`; `.github/workflows/`; `tools/initialize_template.py`; `tools/doctor.py`; `tools/padrao_ouro_audit.py`; `docs/padrao-ouro/PADRAO.md`; `README.md`; `AGENTS.md`; `docs/OPERATIONS.md`; `tests/test_pre_push_hook.py`; `tests/test_ci_pinado.py`; `tests/test_doctor.py`; `tests/test_padrao_ouro.py`; `.specs/`
 **Depends on**: T8
 **Requirement**: TV2-06
 
 **Done when**:
 
-- [x] Every hosted workflow is dispatch-only and the manual test fallback covers Linux and Windows.
-- [x] The local contract names every required gate, requires commit/SO/Python/result evidence, and blocks an unavailable command from being reported as a pass.
-- [x] The operational and gold audits enforce the local contract instead of treating an automatic workflow as proof.
+- [x] `git push` in a clone with `core.hooksPath = .githooks` is refused when a gate fails, naming the gate; deletion-only pushes run no gate (`tests/test_pre_push_hook.py`, real push to a bare remote).
+- [x] `initialize_template.py` activates the hook and `doctor.py` reports `hooks_path_not_configured` / `hook_file_missing` with the repair command.
+- [x] `tests.yml` and `gitleaks.yml` trigger only on `pull_request`; one job, no matrix, no `paths-ignore`, `concurrency` with cancel-in-progress, SHA-pinned actions; `tests-macos.yml` and `security.yml` only on `workflow_dispatch` (closed table in `tests/test_ci_pinado.py`).
+- [x] Hook and `tests.yml` invoke the same `tools/*.py` set (parity test).
+- [x] PO-C01 (v1.1) fails a dispatch-only workflow and a repo without the hook, each with its own address; C03/K04 measure workflows again, not the README. Template scores 10.0/10 with `--template`; v1 template scores 9.3/10 (missing hook only).
 
-**Tests**: declarative and mutation
+**Tests**: declarative, mutation and end-to-end (real `git push`)
 **Gate**: `python3 tools/gate_veredito.py && python3 tools/validate_new_instance.py .`
 
 ## Task Granularity Check
@@ -236,7 +238,7 @@ T1 -> T2 -> T3 -> T5 -> T6 -> T7 -> T8 -> T4
 | T6 | Router/documentation integration | ✅ Granular |
 | T7 | Agent/eval ownership component | ✅ Granular |
 | T8 | New-instance lifecycle component | ✅ Granular |
-| T9 | Local-first verification component | ✅ Granular |
+| T9 | Hook + PR CI verification component | ✅ Granular |
 
 ## Diagram-Definition Cross-Check
 

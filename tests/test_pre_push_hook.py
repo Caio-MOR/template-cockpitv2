@@ -123,7 +123,7 @@ def test_hook_e_ci_chamam_os_mesmos_gates():
 
     def invocados(texto: str) -> set[str]:
         # Só linhas de comando; comentário citando um tool não é invocação.
-        codigo = "\n".join(l for l in texto.splitlines() if not l.lstrip().startswith("#"))
+        codigo = "\n".join(linha for linha in texto.splitlines() if not linha.lstrip().startswith("#"))
         return set(padrao.findall(codigo))
 
     no_hook = invocados(HOOK.read_text(encoding="utf-8"))

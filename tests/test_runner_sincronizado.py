@@ -90,8 +90,8 @@ def test_regra_de_delegacao_orquestra_verifica_e_nao_nomeia_modelo():
     for trecho in ("sessão principal", "subagente", "mais barato", "autor ≠ verificador", "inline"):
         assert trecho in regra, f"regra sem `{trecho}`"
     assert not RE_MODELO_OU_FORNECEDOR.search(regra), RE_MODELO_OU_FORNECEDOR.search(regra)
-    ativos = [l for l in config.splitlines() if l.strip() and not l.lstrip().startswith("#")]
-    assert not any("default_subagent_model" in l for l in ativos), ativos
+    ativos = [linha for linha in config.splitlines() if linha.strip() and not linha.lstrip().startswith("#")]
+    assert not any("default_subagent_model" in linha for linha in ativos), ativos
     assert "[agents]" in ativos and "enabled = true" in ativos
 
 
