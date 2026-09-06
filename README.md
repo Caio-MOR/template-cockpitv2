@@ -32,9 +32,15 @@ run `PY=.venv/bin/python` and then `"$PY" tools/gate_veredito.py`. In PowerShell
 `& $GITLEAKS detect ...` in PowerShell. Do not substitute a system Python, `ruff`,
 `pip-audit`, or `bandit` executable.
 
-## Verificar localmente
+## Verificar: hook antes do push, CI de PR como rede
 
-Run these commands on the user's chosen computer or local environment before delivery. Record the commit, operating system, Python version, and result for every command. A missing tool or a failed command blocks the delivery; do not report a substitute or assumed pass.
+O modelo tem três linhas:
+
+1. **O hook bloqueia o push.** `.githooks/pre-push` (versionado) roda os gates na sua máquina antes de todo `git push`; um gate vermelho recusa o push e diz qual. Ativação: `git config core.hooksPath .githooks` (o inicializador faz; `PY tools/doctor.py` reprova o clone que não fez). `git push --no-verify` é a brecha assumida — e o hook do Claude Code a bloqueia para o agente.
+2. **O CI de PR é a rede.** `.github/workflows/tests.yml` e `gitleaks.yml` rodam uma vez por pull request, num só runner Linux, com actions pinadas em SHA e binário do gitleaks conferido por checksum. Custo quase zero de minutos: nada dispara em push ou agenda; `tests-macos.yml` e `security.yml` são opcionais, sob demanda (`workflow_dispatch`).
+3. **Os gates são os mesmos nos dois.** `tests/test_pre_push_hook.py` mede a paridade; mudou um gate no hook, muda no workflow no mesmo PR.
+
+Os comandos abaixo são o que o hook e o CI executam (mais os de segurança de dependências, que precisam de rede e ficam sob demanda). Rode-os antes de entregar e cole a saída, com commit, SO e versão do Python; ferramenta ausente ou comando vermelho bloqueia a entrega, nunca vira "passou por suposição".
 
 - `PY tools/gate_veredito.py` — esperado `veredito: VERDE` (guarda de conteúdo + canário + suíte).
 - `PY tools/lint_routers.py` — esperado `0 erro(s)`.
@@ -45,7 +51,7 @@ Run these commands on the user's chosen computer or local environment before del
 - `PY -m bandit --quiet --recursive --severity-level medium --confidence-level medium tools workflows` — static security analysis.
 - `GITLEAKS detect --source . --no-banner --redact --verbose` — full-history secret scan. `GITLEAKS` must name a checksum-verified v8.30.1 binary, never an arbitrary installed tool. On Linux x64, use the exact archive and SHA-256 from `.github/workflows/gitleaks.yml`; on another platform, download the matching v8.30.1 archive and its official `gitleaks_8.30.1_checksums.txt` (fora do git), verify the archive checksum before extracting it, then set `GITLEAKS` to the extracted executable.
 
-The four files in `.github/workflows/` are manual hosted fallbacks only. Do not dispatch them or restore push, pull-request, merge-queue, or schedule triggers unless the repository owner explicitly chooses hosted execution. Native GitHub secret scanning, push protection, and Dependabot alerts remain separate GitHub controls and do not consume Actions minutes.
+Secret scanning nativo do GitHub, push protection e alertas do Dependabot são controles separados do GitHub e não consomem minutos de Actions.
 
 ## O que é cada peça e por quê
 
@@ -54,7 +60,7 @@ The four files in `.github/workflows/` are manual hosted fallbacks only. Do not 
 - `README.md` — porta de entrada humana; o lint confere as referências dele também, porque drift aqui envenena igual.
 - `.gitignore` em allowlist — o git versiona o que se libera, não o que se esquece de negar; arquivo novo nunca entra por acidente.
 - `.gitattributes` — LF no repo, nativo na máquina; `.bat`/`.vbs` em CRLF porque o interpretador do Windows exige.
-- `.python-version` / `requirements.txt` — local environments and optional manual hosted fallbacks use the same exact Python version and hash-locked dependencies.
+- `.python-version` / `requirements.txt` — máquina local, hook e CI usam a mesma versão exata de Python e o mesmo lock com hashes.
 - `pytest.ini` / `conftest.py` — réguas da suíte fora de `tests/`: guarda que mora dentro do que vigia some junto.
 - `tools/` — scripts determinísticos com router próprio; o veredito e o lint moram aqui porque são ferramentas, não testes.
 - `tests/` — um arquivo por gate; cada gate tem teste sintético que prova que ele REPROVA, não só que passa.
@@ -62,7 +68,8 @@ The four files in `.github/workflows/` are manual hosted fallbacks only. Do not 
 - `docs/` — referência durável com router; começa vazia de propósito.
 - `.specs/` — decisões (`STATE.md`) e lições (`LESSONS.md`) versionadas: o porquê é o que a próxima sessão não reconstrói sozinha.
 - `.claude/` — rules que carregam na sessão, sub-agente verificador (autor ≠ verificador), commands de gate e hooks de aviso de compactação.
-- `.github/` — manual hosted fallbacks for the local verification commands. They retain pinned actions and the checksum-verified Gitleaks binary without consuming minutes automatically.
+- `.githooks/` — hook `pre-push` versionado: a primeira linha dos gates, na máquina de quem empurra (`git config core.hooksPath .githooks` liga; `tools/doctor.py` confere).
+- `.github/` — a rede: `tests.yml` e `gitleaks.yml` por pull request com actions pinadas em SHA e binário do gitleaks conferido por checksum; `tests-macos.yml` e `security.yml` sob demanda.
 
 ## Memória do agente (opcional)
 
@@ -84,8 +91,8 @@ Depois, no clone novo, é o **agente** quem executa este checklist ao abrir a pr
 1. Ask for the project name, short description, default language, GitHub owner, and the template owner. Replace only the declared instance placeholders in `AGENTS.md` (`{{NOME_DO_REPO}}`, `{{IDIOMA}}`), `README.md` (`{{NOME_DO_REPO}}`, `{{DESCRICAO}}`, `{{DONO}}`), and `.github/CODEOWNERS` (`{{GITHUB_OWNER}}`). Do not perform a repository-wide placeholder replacement: code and tests may contain deliberate template-like strings. <!-- padrao-ouro:ignorar -->
 2. Criar o `.venv` conforme a seção "Como rodar" acima.
 3. If using Codex subagents, copy `.codex/config.example.toml` to `.codex/config.toml` (local, fora do git); otherwise leave the example untouched.
-4. With the canonical `PY` binding above, execute `PY tools/initialize_template.py --dry-run .`, review the list, then execute `PY tools/initialize_template.py .`.
-5. Rodar os cinco gates e o auditor do padrão ouro **sem** `--template` (a instância real não tem mais placeholder para desculpar).
+4. With the canonical `PY` binding above, execute `PY tools/initialize_template.py --dry-run .`, review the list, then execute `PY tools/initialize_template.py .` — além de limpar os registros de build do template, isso ativa o hook `pre-push` (`git config core.hooksPath .githooks`); `PY tools/doctor.py` confirma.
+5. Rodar os cinco gates e o auditor do padrão ouro **sem** `--template` (a instância real não tem mais placeholder para desculpar; o hook e o CI já trocam de modo sozinhos ao sumir o placeholder do `AGENTS.md`).
 6. Instalar as skills de processo do marketplace `caio-mor` (já registrado em `.claude/settings.json`, mas registro não instala sozinho — cada plugin precisa de comando explícito):
    ```
    claude plugin install tlc-spec-driven@caio-mor
@@ -93,7 +100,7 @@ Depois, no clone novo, é o **agente** quem executa este checklist ao abrir a pr
    claude plugin install os-audit@caio-mor
    ```
    Conferir com `claude plugin list` e colar a saída na entrega.
-7. Primeiro commit em branch + PR, execute the local verification contract above and attach the commit, OS, Python version, and complete results. Do not claim success if any listed command is unavailable or fails.
+7. Primeiro commit em branch + PR: o hook roda os gates no push, o CI de PR repete como rede. Cole a saída dos comandos acima (commit, SO, versão do Python) na entrega; comando ausente ou vermelho não vira "passou".
 
 ## O que o Claude Code bloqueia sozinho neste repo
 
