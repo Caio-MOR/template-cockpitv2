@@ -16,7 +16,10 @@ fornecedor de propósito: isso é configuração do harness e muda mais rápido 
    docs); o mais forte para especificar, decidir arquitetura e depurar causa
    desconhecida. Onde o harness permite escolher o modelo por agente, fixe-o em cada
    despacho — sem isso o subagente herda o modelo caro da sessão e a delegação não
-   economiza nada.
+   economiza nada. O tier concreto é configuração, não doutrina: vive na variável de
+   ambiente de subagente do harness e no campo de modelo do frontmatter de cada
+   agente; troque esses valores conforme o harness disponível — esta regra não
+   nomeia modelo nem fornecedor.
 3. **Paralelize.** Frentes independentes saem numa única resposta, em background.
    Espere só quando o próximo passo depende do resultado.
 4. **Verificação também é delegada, e autor ≠ verificador.** Quem escreveu não
