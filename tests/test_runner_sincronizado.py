@@ -73,14 +73,26 @@ def test_commit_upstream_e_sha_completo_de_git():
     assert all(c in "0123456789abcdef" for c in COMMIT_UPSTREAM), COMMIT_UPSTREAM
 
 
-def test_delegacao_codex_e_opcional_e_condicional():
-    """O perfil é um exemplo opt-in e a regra não pressupõe suporte do harness."""
+# Nomes de modelo e de fornecedor que a regra de delegação não pode citar: a escolha
+# é do harness e da máquina, e envelhece mais rápido que a regra.
+RE_MODELO_OU_FORNECEDOR = __import__("re").compile(
+    r"gpt|luna|claude|sonnet|haiku|opus|openai|anthropic|gemini|codex", __import__("re").IGNORECASE
+)
+
+
+def test_regra_de_delegacao_orquestra_verifica_e_nao_nomeia_modelo():
+    """Sessão principal orquestra, subagente executa o mecânico, autor ≠ verificador,
+    modelo mais barato do harness para o mecânico — e nenhum modelo/fornecedor nomeado.
+    O perfil Codex continua exemplo opt-in, sem modelo fixado."""
     regra = REGRA_DELEGACAO.read_text(encoding="utf-8")
     config = CONFIG_CODEX_EXEMPLO.read_text(encoding="utf-8")
     assert not (RAIZ / ".codex" / "config.toml").exists()
-    assert "model selection" in regra and "offers `gpt-5.6-luna`" in regra
-    assert "harness default or execute inline" in regra
-    assert 'default_subagent_model = "gpt-5.6-luna"' in config
+    for trecho in ("sessão principal", "subagente", "mais barato", "autor ≠ verificador", "inline"):
+        assert trecho in regra, f"regra sem `{trecho}`"
+    assert not RE_MODELO_OU_FORNECEDOR.search(regra), RE_MODELO_OU_FORNECEDOR.search(regra)
+    ativos = [l for l in config.splitlines() if l.strip() and not l.lstrip().startswith("#")]
+    assert not any("default_subagent_model" in l for l in ativos), ativos
+    assert "[agents]" in ativos and "enabled = true" in ativos
 
 
 def test_cabecalho_declara_a_natureza_de_atestacao():

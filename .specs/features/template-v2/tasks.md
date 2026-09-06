@@ -12,7 +12,7 @@
 | Runtime and workflow example | unit and concurrency smoke | Every retry, lock, atomic-write, redaction, and workflow completion outcome in TV2-01 | `tests/test_cockpit_runtime.py`, `tests/test_rotina_exemplo_runtime.py` | `python3 tools/gate_veredito.py` |
 | Security, hooks, doctor, policy, and audits | unit | Every pass/fail branch, with path-only or names-only diagnostics | `tests/test_hooks.py`, `tests/test_doctor.py`, `tests/test_policy_check.py`, `tests/test_operational_audit.py`, `tests/test_padrao_ouro.py` | `python3 tools/gate_veredito.py` |
 | Verdict and CI | smoke and declarative | Both canaries, all verdict branches, hash-only installation, SHA-pinned actions, required checks | `tests/test_ci_pinado.py`, `tests/test_criacao_nova.py` | `python3 tools/gate_veredito.py` |
-| Delegation and eval ownership | declarative | Luna opt-in/fallback and supplied immutable canonical-runner commit | `tests/test_eval_runner.py` or dedicated declarative test | `python3 tools/gate_veredito.py` |
+| Delegation and eval ownership | declarative | Harness-neutral delegation rule (orchestrate, delegate mechanical work, author != verifier, no model named) and supplied immutable canonical-runner commit | `tests/test_runner_sincronizado.py` | `python3 tools/gate_veredito.py` |
 | New-instance initialization | temporary-copy integration | Dry run mutates nothing; apply removes only allowlisted v2 records; initialized copy passes all five gates and both required 10 scores | `tests/test_new_instance.py` | `python3 tools/gate_veredito.py` |
 
 ## Gate Check Commands
@@ -172,7 +172,7 @@ T1 -> T2 -> T3 -> T5 -> T6 -> T7 -> T8 -> T4
 
 ### T7: Add portable cheap-delegation and canonical eval ownership
 
-**What**: Replace the source's tool-specific delegation language with opt-in Codex guidance, and synchronize the eval runner only to the immutable canonical plugin commit supplied by the upstream runner change.
+**What**: Replace the source's tool-specific delegation language with harness-neutral guidance (no model or vendor named), and synchronize the eval runner only to the immutable canonical plugin commit supplied by the upstream runner change.
 **Where**: `.claude/rules/delegacao-barata.md`
 **Files**: `.claude/rules/delegacao-barata.md`; `.codex/config.toml`; `tools/eval_runner.py`; `tests/test_eval_runner.py`; `tests/test_runner_sincronizado.py`; `tests/test_evals_estrutura.py`; `evals/`; `evals/CLAUDE.md`
 **Depends on**: T6
@@ -181,7 +181,7 @@ T1 -> T2 -> T3 -> T5 -> T6 -> T7 -> T8 -> T4
 
 **Done when**:
 
-- [x] Guidance selects `gpt-5.6-luna` only when the harness exposes model selection and that model; otherwise it directs the harness default or inline execution.
+- [x] Guidance keeps main-session orchestration, cheapest-available-model delegation for mechanical work and author != verifier, names no model or vendor, and falls back to inline execution when subagents are unavailable.
 - [x] Material changes require a fresh independent verifier, but no local setting falsely claims to enforce orchestration.
 - [x] Runner synchronization test records the supplied immutable plugin commit and rejects an altered local copy.
 

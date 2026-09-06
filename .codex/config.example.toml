@@ -1,5 +1,10 @@
+# Perfil opcional de subagentes para o Codex. Copiar para .codex/config.toml (fora
+# do git) só se for usar subagentes por lá. A regra .claude/rules/delegacao-barata.md
+# pede o modelo mais barato que o harness oferecer para trabalho mecânico: defina-o
+# aqui, na sua máquina — o template não nomeia modelo nem fornecedor. Sem a linha,
+# vale o default do harness.
 [agents]
 enabled = true
 max_concurrent_threads_per_session = 3
-default_subagent_model = "gpt-5.6-luna"
-default_subagent_reasoning_effort = "low"
+# default_subagent_model = "<o mais barato que a sua conta oferecer>"
+# default_subagent_reasoning_effort = "low"

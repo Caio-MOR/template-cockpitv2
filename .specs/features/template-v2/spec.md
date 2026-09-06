@@ -7,7 +7,7 @@
 ## Goals
 
 - [ ] Give every repository generated from v2 deterministic local validation and optional manual hosted fallbacks for its portable controls.
-- [ ] Keep the agent delegation policy portable and able to choose an inexpensive Codex worker when available.
+- [ ] Keep the agent delegation policy portable: main session orchestrates, the cheapest worker the harness offers executes mechanical work, author != verifier — without naming a model or vendor.
 - [ ] Prove a newly generated instance starts clean and passes its bootstrap validation without private configuration.
 
 ## Out of Scope
@@ -25,7 +25,7 @@
 | --- | --- | --- | --- |
 | v2 repository ownership and visibility | Create it later as `Caio-MOR/template-cockpitv2`, public, matching v1 | The user chose a parallel public template under the same owner. | yes |
 | Runtime baseline | Port only controls that execute with declared, locked dependencies and no personal paths | A template must work on an arbitrary clean checkout. | yes |
-| Delegation | Codex delegation is opt-in; when model selection supports `gpt-5.6-luna`, use it for bounded mechanical work, otherwise use the harness default or work inline and keep the main session accountable | Cheap delegation must be possible without making a specific harness or model available. | yes |
+| Delegation | Harness-neutral rule: main session orchestrates; subagents (when the harness offers them) do bounded mechanical work and independent verification using the cheapest model the harness offers; otherwise inline with the same contract. No model or vendor named | A named model ages faster than the rule and binds the template to one vendor. | yes, 2026-09-05 |
 | Eval runner | Keep plugin-repository ownership, pin the immutable canonical commit supplied by its pending upstream change, and enforce the documented synchronization contract | A copied runner must not silently become a competing source of truth or copy an unmerged local instance. | yes |
 | Bootstrap cleanup | Generated instances remove or archive v2-build feature records before their first project feature | Build planning is review evidence, not template user history. | yes |
 | Local-first verification | Run all gates on the user's chosen computer or local environment; hosted workflows are manual fallbacks and GitHub Actions must not run automatically | The owner chose to avoid hosted Actions minutes while retaining reproducible optional fallbacks. | yes, 2026-09-05 |
@@ -72,7 +72,7 @@
 
 **Acceptance Criteria**:
 
-1. WHERE a Codex harness supports model selection and offers `gpt-5.6-luna`, the delegation guidance SHALL name it as the default for bounded mechanical work, and IF either condition is absent THEN the guidance SHALL use the harness default or inline execution while requiring independent verification for material changes.
+1. WHERE the harness supports subagents, the delegation guidance SHALL send bounded mechanical work and independent verification (author != verifier) to them using the cheapest model the harness offers, without naming any model or vendor, and IF subagents are unavailable THEN the guidance SHALL execute inline while keeping the same contract.
 2. The template SHALL document the plugin repository as the canonical owner of the eval runner, pin the immutable upstream commit supplied for v2, and require an explicit synchronized-copy update when its local runner changes.
 
 **Independent Test**: Inspect the portable delegation rule and eval synchronization test/documentation in a clean generated instance.

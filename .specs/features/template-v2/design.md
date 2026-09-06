@@ -29,7 +29,7 @@ graph TD
 | Security and repository policy | `Cakopit-codex/tools/policy_check.py`, `.env.example`, `.gitignore` | Port only generic secret and environment policy. |
 | External verdict and router lint | `Cakopit-codex/tools/gate_veredito.py`, `tools/lint_routers.py`, `tools/canario_gate/` | Reuse the independent-verdict pattern and recalibrate repository-specific counts. |
 | CI and lock | `Cakopit-codex/.github/workflows/`, `requirements.in`, `requirements.txt`, `.python-version` | Port pinned, portable workflows and declared dependencies; omit self-hosted configuration and gitleaks exceptions. |
-| Cheap delegation | `Cakopit-codex/.claude/rules/delegacao-barata.md`, `.codex/config.toml` | Rewrite names and examples as optional Codex guidance with Luna as a selectable default. |
+| Cheap delegation | `Cakopit-codex/.claude/rules/delegacao-barata.md`, `.codex/config.toml` | Rewrite as harness-neutral guidance: orchestrate, delegate mechanical work to the cheapest available model, author != verifier; no model or vendor named. |
 
 ## Components
 
@@ -92,7 +92,7 @@ graph TD
 | --- | --- | --- |
 | Runtime surface | Port portable guards exactly where behavior remains generic | Mature deterministic code is safer than recreating it. |
 | Audit behavior | Operational audit always requires 10.0; gold audit alone has `--template` | The actual CLI keeps template-placeholder handling separate from operational controls. |
-| Delegation | Opt-in Codex capability with Luna only when the harness offers it; otherwise use the harness default or inline execution | Users can save cost without requiring a single agent platform or model. |
+| Delegation | Harness-neutral rule; model choice lives in harness configuration, not in the rule | Users can save cost without requiring a single agent platform or model, and the rule does not age with model names. |
 | Eval ownership | Plugin repository remains canonical and v2 pins the immutable supplied upstream commit | Ownership stays singular, auditable, and independent of an unmerged local copy. |
 | Freshness proof | Explicit, dry-run initialization plus read-only new-instance validator and temp-copy test | It proves a clean instance while limiting mutation to known build evidence. |
 | Verification execution | Local verification on the user's chosen environment is mandatory; hosted workflows are `workflow_dispatch` fallbacks only | It preserves deterministic checks and optional reproducibility without automatic Actions minutes. |
