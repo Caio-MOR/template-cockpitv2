@@ -411,7 +411,7 @@ _CHECKS: tuple[tuple[str, Callable[[Repo], list[Finding]]], ...] = (
 
 def _remote_checks() -> tuple[RemoteCheck, ...]:
     return (
-        RemoteCheck("REMOTE-BRANCH", "Require pull requests, no bypass, resolved discussions, and recorded local verification evidence. Enable hosted required checks only after explicitly opting into hosted execution."),
+        RemoteCheck("REMOTE-BRANCH", "Require pull requests, no bypass, resolved discussions, an up-to-date branch before merge, and the `tests` and `gitleaks` PR checks as required status checks."),
         RemoteCheck("REMOTE-SECRETS", "Enable secret scanning and push protection where the repository plan supports them."),
         RemoteCheck("REMOTE-DEPENDABOT", "Enable dependency alerts and review update pull requests for both pip and Actions."),
         RemoteCheck("REMOTE-RECOVERY", "Confirm backup retention, restore drills, and account recovery contacts outside this checkout."),

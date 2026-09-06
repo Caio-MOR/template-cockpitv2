@@ -28,7 +28,7 @@ Categorias com conteúdo variável têm router local (`CLAUDE.md` dentro da past
 | Teste automatizado (gates, tools, sensores) | `tests/` — um arquivo por gate ou tool; configuração em `pytest.ini` + `conftest.py` na raiz |
 | Spec de feature em andamento e log de decisões | `.specs/` — `STATE.md` (decisões AD-nnn + handoff), `LESSONS.md`, uma pasta por feature quando houver |
 | Rules, sub-agentes, commands, skills, hooks | `.claude/` — `rules/` (carregadas na abertura da sessão), `agents/`, `commands/`, `skills/` (`_exemplo-skill/` é o modelo a copiar), `hooks/` (guarda de bash e de segredo, enforcement em runtime), `settings.json` (`permissions` + hooks `PreToolUse`; também registra o marketplace de plugins de processo, caio-mor) |
-| Verificação local obrigatória e fallback hospedado manual | `README.md` (comandos e evidência), `.github/workflows/` (somente `workflow_dispatch`) |
+| Gates antes do push e rede por PR | `.githooks/pre-push` (hook versionado; ativar com `git config core.hooksPath .githooks`), `.github/workflows/` (`tests.yml` e `gitleaks.yml` em `pull_request`; `tests-macos.yml` e `security.yml` sob demanda) — mesmos gates nos dois; comandos e evidência no `README.md` |
 | Configuração de gate e de ambiente | `conftest.py` (réguas da suíte), `pytest.ini`, `requirements.txt`, `.python-version` (3.12.13), `.codex/config.example.toml` (perfil Codex opcional), `.gitignore` (allowlist nega-tudo), `.gitattributes` |
 | Instruções para agentes e porta de entrada humana | `AGENTS.md` (fonte única), `CLAUDE.md` (importa este + adendos), `README.md` (humanos) |
 
@@ -50,7 +50,7 @@ Os 4 modos de falha que mais derrubam acerto. Siga à risca:
 - `python tools/gate_veredito.py` — veredito da suíte: guarda de conteúdo (AST do `conftest.py` e dos gates) + canário + suíte, em subprocessos de ambiente limpo. Esperado: `veredito: VERDE`. `pytest -q` direto não substitui: quem julga a suíte não pode ser o próprio pytest.
 - `python tools/lint_routers.py` — referências de todo `CLAUDE.md` (e `AGENTS.md`/`README.md`) contra o índice git, mais cobertura reversa de `workflows/` e `tools/`. Esperado: `0 erro(s)`.
 
-Antes de entregar qualquer mudança, execute as verificações locais do `README.md` no computador ou ambiente escolhido pelo usuário. Registre o commit, SO, versão do Python e resultado de cada comando; uma ferramenta ausente ou uma falha deixa a entrega bloqueada, nunca aprovada por suposição. Os workflows em `.github/workflows/` são fallback hospedado manual: nunca os dispare nem reative gatilhos automáticos sem escolha explícita do usuário.
+Antes de entregar qualquer mudança, execute as verificações locais do `README.md` e cole a saída, não a afirmação. O hook `.githooks/pre-push` roda os mesmos gates antes de todo push (bloqueia se um reprovar); o CI de PR (`.github/workflows/tests.yml`) é a rede e roda os mesmos gates uma vez por pull request. Uma ferramenta ausente ou uma falha deixa a entrega bloqueada, nunca aprovada por suposição.
 - `python tools/eval_runner.py --skills-dir .claude/skills` — evals de comportamento (prova de que uma skill dispara/fica quieta), gate **local** (sem credencial de subscription). `tests/test_evals_estrutura.py` (sem LLM) e `tests/test_criacao_nova.py` integram a suíte local e exigem que toda skill nova venha com uma pasta `evals/` (uma subpasta com o nome da skill, ver `evals/_exemplo-skill/`) (>= 1 positivo + 1 negativo).
 
 ## Regras globais

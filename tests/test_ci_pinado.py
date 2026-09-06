@@ -165,16 +165,47 @@ def test_python_e_runners_sao_reprodutiveis():
     assert problemas == [], "\n".join(problemas)
 
 
-def test_workflows_sao_apenas_fallback_manual_e_matriz_cobre_windows():
-    """O template não pode gastar minutos por evento automático nem degradar o fallback."""
-    proibidos = ("pull_request:", "push:", "merge_group:", "schedule:")
-    for workflow in WORKFLOWS:
-        ci = workflow.read_text(encoding="utf-8")
-        assert re.search(r"^\s*workflow_dispatch:\s*$", ci, re.MULTILINE), workflow.name
-        assert not any(gatilho in ci for gatilho in proibidos), workflow.name
-    matriz = (RAIZ / ".github" / "workflows" / "tests.yml").read_text(encoding="utf-8")
-    assert "ubuntu-24.04" in matriz
-    assert "windows-2025" in matriz
+def _gatilhos(texto: str) -> set[str]:
+    """Chaves do bloco `on:` de topo (só a forma em bloco, que é a que este repo usa)."""
+    linhas = texto.splitlines()
+    inicio = next((i for i, l in enumerate(linhas) if l.rstrip() == "on:"), None)
+    if inicio is None:
+        return set()
+    achados = set()
+    for l in linhas[inicio + 1:]:
+        if l.strip() and not l.startswith((" ", "\t")):
+            break
+        m = re.match(r"^  ([A-Za-z_]+):", l)
+        if m:
+            achados.add(m.group(1))
+    return achados
+
+
+# Modelo hook + CI de PR (AD-001): a rede roda uma vez por PR; nada mais dispara
+# sozinho. macOS e segurança de dependências ficam sob demanda.
+GATILHOS_ESPERADOS = {
+    "tests.yml": {"pull_request"},
+    "gitleaks.yml": {"pull_request"},
+    "tests-macos.yml": {"workflow_dispatch"},
+    "security.yml": {"workflow_dispatch"},
+}
+
+
+def test_gatilhos_seguem_o_modelo_hook_mais_ci_de_pr():
+    """Rede por PR (tests + gitleaks) e nada de `push`/`schedule` gastando minuto por
+    evento; os opcionais só por despacho. Tabela fechada: workflow novo entra aqui."""
+    nomes = {wf.name for wf in WORKFLOWS}
+    assert nomes == set(GATILHOS_ESPERADOS), nomes
+    for wf in WORKFLOWS:
+        assert _gatilhos(wf.read_text(encoding="utf-8")) == GATILHOS_ESPERADOS[wf.name], wf.name
+
+
+def test_ci_de_pr_e_minimo_um_job_sem_matriz_sem_paths_ignore_com_concurrency():
+    texto = (RAIZ / ".github" / "workflows" / "tests.yml").read_text(encoding="utf-8")
+    assert len(_blocos_de_jobs(texto)) == 1, "a rede é um job só; SO de quem desenvolve é o hook"
+    assert "matrix:" not in texto
+    assert "paths-ignore:" not in texto, "lint de routers depende de .md; filtro de caminho furaria o gate"
+    assert "concurrency:" in texto and "cancel-in-progress: true" in texto
     macos = (RAIZ / ".github" / "workflows" / "tests-macos.yml").read_text(encoding="utf-8")
     assert "ruff check ." in macos
 
@@ -263,26 +294,24 @@ def test_ci_chama_o_veredito_e_nao_o_pytest_direto():
     `tools/gate_veredito.py`, e nenhum step roda `pytest` a seco."""
     texto = (RAIZ / ".github" / "workflows" / "tests.yml").read_text(encoding="utf-8")
     assert "tools/gate_veredito.py" in texto
-    assert "tools/padrao_ouro_audit.py --tipo cockpit --template ." in texto
+    # Auditor com o mesmo critério de modo do hook: `--template` só enquanto o
+    # placeholder do nome do repo existir em AGENTS.md.
+    assert "python tools/padrao_ouro_audit.py $FLAGS ." in texto
+    assert 'FLAGS="--tipo cockpit"' in texto
+    assert "grep -q '{{NOME_DO_REPO}}' AGENTS.md" in texto  # padrao-ouro:ignorar
     corridas = [l.split("run:", 1)[1].strip() for l in texto.splitlines() if "run:" in l]
     assert not any(c in ("pytest -q", "pytest") for c in corridas), corridas
     assert "working-directory" not in texto, "gate rodado de subpasta não mede a árvore inteira"
 
 
-def test_windows_e_macos_instalam_o_patch_exato_com_runtime_gerenciado_pelo_uv():
-    """Windows 2025 e macOS 14 não oferecem todo patch no setup-python.
+def test_macos_instala_o_patch_exato_com_runtime_gerenciado_pelo_uv():
+    """macOS 14 não oferece todo patch no setup-python.
 
-    O fallback precisa baixar o patch declarado pelo projeto, criar a `.venv`
-    canônica e executar tanto a instalação quanto o veredito por ela.
+    O opcional de macOS precisa baixar o patch declarado pelo projeto, criar a
+    `.venv` canônica e executar tanto a instalação quanto o veredito por ela.
+    (O Windows saiu do CI hospedado: quem cobre esse SO é o hook pre-push na
+    máquina de quem desenvolve nele.)
     """
-    texto = (RAIZ / ".github" / "workflows" / "tests.yml").read_text(encoding="utf-8")
-    assert "if: runner.os == 'Windows'" in texto
-    assert "uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1" in texto
-    assert "uv python install" in texto
-    assert "--managed-python --python (Get-Content .python-version) .venv" in texto
-    assert "uv pip install --python .venv\\Scripts\\python.exe --require-hashes -r requirements.txt" in texto
-    assert ".venv\\Scripts\\python.exe tools/gate_veredito.py" in texto
-
     macos = (RAIZ / ".github" / "workflows" / "tests-macos.yml").read_text(encoding="utf-8")
     assert macos.count("uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1") == 2
     assert macos.count("uv python install") == 2

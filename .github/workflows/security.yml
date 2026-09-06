@@ -1,7 +1,9 @@
 name: security
 
-# Fallback hospedado opcional para os comandos de segurança locais. Nenhuma
-# credencial é necessária; este workflow só roda por despacho explícito.
+# Opcional, sob demanda (`workflow_dispatch`): auditoria de vulnerabilidades das
+# dependências (pip-audit, precisa de rede) e análise estática (bandit). Ficam fora
+# do hook e do CI de PR por custo e por rede; os comandos locais equivalentes estão
+# no README. Dispare à mão ao atualizar o lock ou em revisão periódica.
 
 on:
   workflow_dispatch:

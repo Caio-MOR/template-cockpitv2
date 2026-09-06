@@ -97,11 +97,14 @@ and resume only with a reviewed idempotency key.
 
 ## Verification execution
 
-This template requires verification on the user's chosen local computer or environment.
-The hosted workflows are manual fallbacks only. An agent must not dispatch them or restore
-automatic triggers without the repository owner's explicit choice. A repository may change
-that policy after a repository-specific security and cost review, but no personal runner,
-label, owner, or hosted merge requirement belongs in the template.
+Two layers run the same gates. The versioned hook `.githooks/pre-push` is the first
+line: it runs on the developer's machine before every push and blocks the push when a
+gate fails (`git config core.hooksPath .githooks` activates it; `tools/doctor.py`
+reports a clone that skipped that). The hosted workflows `tests.yml` and `gitleaks.yml`
+are the net: they run once per pull request on a single Linux runner, covering
+`--no-verify`, clones without the hook and OS differences at near-zero Actions cost.
+`tests-macos.yml` and `security.yml` are optional, dispatched by hand. No personal
+runner, label, owner, or hosted merge requirement belongs in the template.
 
 GitHub native secret scanning, CodeQL, and dependency review are currently unavailable
 for this private personal repository without GitHub Code Security/Secret Protection.

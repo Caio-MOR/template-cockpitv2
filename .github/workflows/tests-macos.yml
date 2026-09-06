@@ -1,7 +1,9 @@
 name: tests-macos
 
-# Fallback hospedado opcional para macOS. A verificação obrigatória é local, no
-# sistema escolhido pelo mantenedor; este workflow só roda por despacho explícito.
+# Opcional, sob demanda (`workflow_dispatch`): os mesmos gates do hook e do tests.yml
+# no macOS. A primeira linha é o hook `.githooks/pre-push` na máquina de quem empurra
+# (que já cobre o SO de quem desenvolve); a rede é o `tests.yml` por PR. Este fica
+# para conferir o macOS quando ninguém do time desenvolve nele — dispare à mão.
 
 on:
   workflow_dispatch:

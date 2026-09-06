@@ -1,12 +1,13 @@
 name: gitleaks
 
-# Fallback hospedado opcional para a varredura completa de segredos. A varredura
-# local documentada é obrigatória; este workflow só roda por despacho explícito.
-# Binário pinado por versão E por checksum: baixar-e-executar sem conferir o hash é
-# confiar no servidor de download com o token do repo na mão.
+# Rede da varredura de segredos: o hook `.githooks/pre-push` roda o gitleaks local
+# quando o binário existe no PATH e só avisa quando não existe — por isso a PR roda a
+# varredura completa do histórico aqui, com binário pinado por versão E por checksum
+# (baixar-e-executar sem conferir o hash é confiar no servidor de download com o
+# token do repo na mão). Só `pull_request`, como o tests.yml: custo quase zero.
 
 on:
-  workflow_dispatch:
+  pull_request:
 
 permissions:
   contents: read
