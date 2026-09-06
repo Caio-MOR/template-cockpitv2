@@ -97,7 +97,9 @@ def test_validator_rejects_build_records_and_placeholders_but_allows_later_files
     assert ".specs/features/template-v2" in validate_new_instance.static_findings(instance)
 
 
-def test_initializer_preserves_custom_state_and_rejects_symlinked_targets(tmp_path):
+def test_initializer_preserves_custom_state(tmp_path):
+    """Estado já customizado não é sobrescrito; a rejeição de alvo symlinkado está em
+    `tests/test_symlink_privilegio.py` (symlink exige privilégio no Windows)."""
     instance = _copy_template(tmp_path)
     _add_v2_build_records(instance)
     state = instance / ".specs" / "STATE.md"
@@ -105,14 +107,6 @@ def test_initializer_preserves_custom_state_and_rejects_symlinked_targets(tmp_pa
     assert initialize_template.initialize(instance, dry_run=False) == 1
     assert state.read_text(encoding="utf-8").endswith("custom")
     assert (instance / ".specs" / "features" / "template-v2").is_dir()
-
-    outside = tmp_path / "outside"
-    outside.mkdir()
-    specs = instance / ".specs"
-    specs.rename(tmp_path / "saved-specs")
-    specs.symlink_to(outside, target_is_directory=True)
-    assert initialize_template.initialize(instance, dry_run=False) == 1
-    assert not list(outside.iterdir())
 
 
 def test_validator_ignores_local_venv_placeholder(tmp_path):

@@ -4,7 +4,12 @@
 `PreCompact`/`SessionStart` com `echo`. Este arquivo prova que `guarda_bash.py` e
 `guarda_segredo.py` bloqueiam o que a spec pede (exit 2 + motivo no stderr) e deixam
 passar o resto (exit 0), e que a cascata de interpretador em `run_hook.sh` funciona de
-verdade via `sh` — inclusive no windows-latest do CI, onde `sh` vem do Git Bash.
+verdade via `sh` — inclusive no Windows, onde `sh` vem do Git Bash.
+
+Os subprocessos decodificam com `errors="replace"`: no Windows o hook escreve o
+motivo do bloqueio na codificação do console (cp1252) e o acento derrubava a leitura
+estrita em UTF-8, deixando `stderr=None` — o teste reprovava por causa do console,
+não do hook.
 
 Repositório git temporário (`tmp_path`) simula branch `main` e branch de feature;
 conteúdo sintético de segredo é sempre marcado `SINTETICO` para não acionar scanners
@@ -38,6 +43,7 @@ def _rodar_hook(hook: str, payload: dict, cwd: Path | None = None) -> subprocess
         capture_output=True,
         text=True,
         encoding="utf-8",
+        errors="replace",
         timeout=TETO,
         cwd=str(cwd) if cwd else None,
         env={**__import__("os").environ, "CLAUDE_PROJECT_DIR": str(RAIZ)},
@@ -47,7 +53,7 @@ def _rodar_hook(hook: str, payload: dict, cwd: Path | None = None) -> subprocess
 def _git(*args: str, cwd: Path) -> subprocess.CompletedProcess:
     return subprocess.run(
         ["git", *args], cwd=str(cwd), capture_output=True, text=True,
-        encoding="utf-8", timeout=TETO, check=True,
+        encoding="utf-8", errors="replace", timeout=TETO, check=True,
     )
 
 
@@ -288,7 +294,7 @@ def test_permite_fixture_sintetico_com_separador_windows():
 def test_guarda_bash_bloqueia_com_stdin_invalido():
     r = subprocess.run(
         [_sh(), str(RUN_HOOK), "guarda_bash.py"], input="isto nao e json",
-        capture_output=True, text=True, encoding="utf-8", timeout=TETO,
+        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=TETO,
         env={**__import__("os").environ, "CLAUDE_PROJECT_DIR": str(RAIZ)},
     )
     assert r.returncode == 2, r.stdout + r.stderr
@@ -298,7 +304,7 @@ def test_guarda_bash_bloqueia_com_stdin_invalido():
 def test_guarda_segredo_bloqueia_com_stdin_invalido():
     r = subprocess.run(
         [_sh(), str(RUN_HOOK), "guarda_segredo.py"], input="isto nao e json",
-        capture_output=True, text=True, encoding="utf-8", timeout=TETO,
+        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=TETO,
         env={**__import__("os").environ, "CLAUDE_PROJECT_DIR": str(RAIZ)},
     )
     assert r.returncode == 2, r.stdout + r.stderr
@@ -313,7 +319,7 @@ def test_guarda_segredo_bloqueia_conteudo_ausente():
 def test_run_hook_rejeita_script_fora_da_allowlist():
     r = subprocess.run(
         [_sh(), str(RUN_HOOK), "../outro.py"], input="{}",
-        capture_output=True, text=True, encoding="utf-8", timeout=TETO,
+        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=TETO,
         env={**__import__("os").environ, "CLAUDE_PROJECT_DIR": str(RAIZ)},
     )
     assert r.returncode == 2, r.stdout + r.stderr
