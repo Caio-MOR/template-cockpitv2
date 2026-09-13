@@ -326,6 +326,29 @@ def test_run_hook_rejeita_script_fora_da_allowlist():
         env={**__import__("os").environ, "CLAUDE_PROJECT_DIR": str(RAIZ)},
     )
     assert r.returncode == 2, r.stdout + r.stderr
+    assert "script de hook não permitido" in r.stderr
+
+
+def test_run_hook_rejeita_script_existente_fora_da_allowlist(tmp_path: Path):
+    """Discrimina de verdade: usa um script que EXISTE no diretório de hooks mas não
+    está na allowlist. Os dois testes acima usam nomes que também não existem como
+    arquivo (`../outro.py`, `script_inexistente.py`) — se a allowlist do
+    `run_hook.sh` for removida, o Python tenta rodar um caminho inexistente e sai
+    com o MESMO código 2 por acidente, e o teste continuaria verde. Aqui, se a
+    allowlist sumir, o script existe e RODARIA com sucesso (exit 0) em vez de ser
+    recusado — por isso a cópia isolada em `tmp_path`, para não poluir
+    `.claude/hooks/` do repo com um arquivo de teste."""
+    hooks_copia = tmp_path / ".claude" / "hooks"
+    shutil.copytree(HOOKS, hooks_copia)
+    extra = hooks_copia / "extra_nao_permitido.py"
+    extra.write_text("print('nao deveria rodar')\n", encoding="utf-8")
+    r = subprocess.run(
+        [_sh(), str(hooks_copia / "run_hook.sh"), "extra_nao_permitido.py"], input="{}",
+        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=TETO,
+        env={**__import__("os").environ, "CLAUDE_PROJECT_DIR": str(tmp_path)},
+    )
+    assert r.returncode == 2, r.stdout + r.stderr
+    assert "script de hook não permitido" in r.stderr
 
 
 # ---------------------------------------------------------------------------
@@ -448,6 +471,7 @@ def test_run_hook_continua_recusando_nome_desconhecido():
         env={**__import__("os").environ, "CLAUDE_PROJECT_DIR": str(RAIZ)},
     )
     assert r.returncode == 2, r.stdout + r.stderr
+    assert "script de hook não permitido" in r.stderr
 
 
 def test_settings_precompact_e_sessionstart_sem_json_inline():
