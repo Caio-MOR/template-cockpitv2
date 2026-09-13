@@ -49,7 +49,7 @@ flowchart TD
     T5[T5 evals deixa de falhar em silêncio] --> T6
 ```
 
-### T4: `test_criacao_nova.py` e `lint_routers.py` apontam para a fonte
+### T4: `test_criacao_nova.py` e `lint_routers.py` apontam para a fonte — concluída
 
 `SKILLS = ".agents/skills/"` em `tests/test_criacao_nova.py:31`; em `tools/lint_routers.py:423` o alvo de uma referência `/nome` passa a ser `.agents/skills/<nome>/SKILL.md`.
 

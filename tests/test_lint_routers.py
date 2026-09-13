@@ -119,6 +119,23 @@ def test_pasta_de_workflow_sem_mencao_no_router_vira_erro(tmp_path):
     assert [(a[0], a[2]) for a in achados] == [("workflows/CLAUDE.md", "workflows/rotina-b/")]
 
 
+def test_ref_skill_resolve_contra_agents_skills_nao_claude_skills(tmp_path):
+    """GAT-02: `/nome` resolve contra `.agents/skills/<nome>/SKILL.md`.
+
+    `_exemplo-skill` (prefixo `_`) não casa em `RE_SKILL` por design (primeiro
+    caractere após a barra tem de ser alfanumérico) — nome sintético aqui é o
+    que de fato exercita a resolução. Skill presente só em `.agents/skills/`
+    tem de passar; skill inexistente tem de reprovar. Antes da correção
+    (`.claude/skills/` como alvo) este teste reprovava com os dois achados.
+    """
+    index = arvore(tmp_path, {
+        "CLAUDE.md": "- veja `/skill-real` e `/skill-inexistente`\n",
+        ".agents/skills/skill-real/SKILL.md": "---\nname: skill-real\ndescription: x\n---\n",
+    })
+    achados = lr.lint(tmp_path, index, SEM_IGNORE)
+    assert [(a[0], a[2]) for a in achados] == [("CLAUDE.md", "/skill-inexistente")]
+
+
 def test_cli_exit_0_em_repo_limpo_e_1_com_erro(tmp_path):
     repo = _repo_git(tmp_path, {"CLAUDE.md": "- veja `docs/CLAUDE.md`\n", "docs/CLAUDE.md": "ok\n"})
     assert _roda_cli("--root", str(repo)).returncode == 0
