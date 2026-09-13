@@ -184,6 +184,8 @@ def test_adotar_move_skill_instalada_no_espelho_para_a_fonte_e_espelha(tmp_path)
     assert linhas[0].startswith("adotado\t.claude/skills/tlc -> .agents/skills/tlc")
     for arvore in (".agents", ".claude", ".grok"):
         assert (root / arvore / "skills" / "tlc" / "scripts" / "lessons.py").read_text(encoding="utf-8") == "l = 1\n"
+        marcador = (root / arvore / "skills" / "tlc" / ss.MARCADOR_VENDORIZADA).read_text(encoding="utf-8")
+        assert "--adotar tlc" in marcador and ".claude/skills/tlc" in marcador
     assert ss.sincronizar(root, check=True)[0] == 0
 
 

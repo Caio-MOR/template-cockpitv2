@@ -111,7 +111,7 @@ Depois, no clone novo, é o **agente** quem executa este checklist ao abrir a pr
    ```
    PY tools/sync_skills.py --adotar <skill>
    ```
-   Isso move a pasta para `.agents/skills/` e regrava os espelhos `.claude/skills/` e `.grok/skills/`. `PY tools/doctor.py` acusa skill órfã ou espelho faltante e diz o comando.
+   Isso move a pasta para `.agents/skills/`, grava nela o marcador `VENDORIZADA.md` (arquivo que ainda não existe no template: nasce na adoção; skill de terceiro não deve formato de grafo nem evals a este repo; os gates de skill nova leem o marcador) e regrava os espelhos `.claude/skills/` e `.grok/skills/`. `PY tools/doctor.py` acusa skill órfã ou espelho faltante e diz o comando.
 7. Primeiro commit em branch + PR: o hook roda os gates no push, o CI de PR repete como rede. Cole a saída dos comandos acima (commit, SO, versão do Python) na entrega; comando ausente ou vermelho não vira "passou".
 
 ## O que o Claude Code bloqueia sozinho neste repo

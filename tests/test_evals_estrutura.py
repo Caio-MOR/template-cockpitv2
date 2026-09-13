@@ -34,8 +34,20 @@ RE_CAMINHO_MAQUINA = re.compile(
 )
 
 
+# Mesma isenção de `tests/test_criacao_nova.py`: skill de terceiro adotada por
+# `tools/sync_skills.py --adotar` traz o marcador e não deve evals de disparo a este repo.
+VENDORIZADA = "VENDORIZADA.md"
+
+
+def _skills_com_evals_exigidos(skills_dir: Path) -> dict[str, Path]:
+    return {
+        nome: caminho for nome, caminho in eval_runner.descobrir_skills(skills_dir).items()
+        if not (caminho / VENDORIZADA).is_file()
+    }
+
+
 def _skills():
-    return eval_runner.descobrir_skills(SKILLS_DIR)
+    return _skills_com_evals_exigidos(SKILLS_DIR)
 
 
 def _exige_skills_descobertas(skills_dir: Path) -> None:
@@ -113,6 +125,18 @@ def test_prompt_sem_caminho_de_maquina():
                 if RE_CAMINHO_MAQUINA.search(linha):
                     problemas.append(f"{case_dir}/prompt.md:{n}: caminho de máquina")
     assert problemas == [], "\n".join(problemas)
+
+
+def test_skill_vendorizada_nao_deve_evals_e_sem_marcador_deve(tmp_path):
+    """Reprodução da instância: skill adotada de instalador externo, sem `evals/<skill>/`,
+    reprovava `test_toda_skill_tem_pasta_evals`. O marcador da ferramenta a isenta."""
+    fonte = tmp_path / ".agents" / "skills"
+    for nome in ("_exemplo-skill", "tlc-spec-lean"):
+        (fonte / nome).mkdir(parents=True)
+        (fonte / nome / "SKILL.md").write_text(f"---\nname: {nome}\ndescription: d\n---\n", encoding="utf-8")
+    assert set(_skills_com_evals_exigidos(fonte)) == {"_exemplo-skill", "tlc-spec-lean"}
+    (fonte / "tlc-spec-lean" / VENDORIZADA).write_text("# vendorizada\n", encoding="utf-8")
+    assert set(_skills_com_evals_exigidos(fonte)) == {"_exemplo-skill"}
 
 
 def test_fonte_de_skills_tem_ao_menos_uma_skill():

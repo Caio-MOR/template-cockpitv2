@@ -38,12 +38,18 @@ ausente ou skill a adotar inexistente/já na fonte; 2 = uso inválido.
 from __future__ import annotations
 
 import argparse
+import datetime
 import shutil
 import sys
 from pathlib import Path
 
 FONTE_REL = Path(".agents") / "skills"
 DESTINOS_REL = (Path(".claude") / "skills", Path(".grok") / "skills")
+# Marcador que `--adotar` grava dentro da skill adotada. Skill de terceiro não é
+# "skill nova" deste repo: os gates de criação (declaração de formato do grafo,
+# evals de disparo em `evals/<skill>/`) leem este arquivo e a isentam — o que
+# ela faz é responsabilidade de quem a publicou, e editá-la aqui é fork silencioso.
+MARCADOR_VENDORIZADA = "VENDORIZADA.md"
 
 
 def _arquivos_relativos(base: Path) -> set[Path]:
@@ -133,6 +139,14 @@ def adotar(root: Path, nome: str) -> tuple[int, list[str]]:
         if origem.is_dir():
             fonte.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(str(origem), str(fonte))
+            (fonte / MARCADOR_VENDORIZADA).write_text(
+                f"# Skill vendorizada\n\n"
+                f"`{nome}` é skill de terceiro, adotada de `{(destino_rel / nome).as_posix()}` por "
+                f"`python tools/sync_skills.py --adotar {nome}` em {datetime.date.today().isoformat()}.\n"
+                f"Não edite aqui (reinstale e adote de novo); os gates de skill nova "
+                f"(formato do grafo, evals de disparo) não se aplicam a ela.\n",
+                encoding="utf-8",
+            )
             relato = [f"adotado\t{(destino_rel / nome).as_posix()} -> {(FONTE_REL / nome).as_posix()}"]
             codigo, linhas = sincronizar(root, check=False)
             return codigo, relato + linhas
