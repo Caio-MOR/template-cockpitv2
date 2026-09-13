@@ -1,5 +1,5 @@
 
-  harness-score v1.6.5  C:\Users\caio.kohn\Documents\projetos\workshop\template-cockpitv2
+  harness-score v1.6.5  <repo>
 
   Maturity: L4 · Self-correcting   Score: 108/108 (100%)   scopes: repo
   Detected: Claude Code

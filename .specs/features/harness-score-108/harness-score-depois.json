@@ -3,7 +3,7 @@
     "name": "harness-score",
     "version": "1.6.5"
   },
-  "root": "C:\\Users\\caio.kohn\\Documents\\projetos\\workshop\\template-cockpitv2",
+  "root": "<repo>",
   "truncated": false,
   "verdicts": {
     "maturity": {
