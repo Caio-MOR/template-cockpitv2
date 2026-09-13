@@ -22,7 +22,7 @@ Requirements: SKL-02, SKL-03
 Tests: `tests/test_sync_skills.py` com fixtures em `tmp_path` — espelho idêntico sai 0; arquivo divergente sai != 0 nomeando o caminho e o motivo `divergente`; arquivo faltante sai != 0 com motivo `faltante`; pasta órfã sai != 0 com motivo `órfão`; modo escrita corrige os três casos; rodar duas vezes não muda nada na segunda; fonte ausente sai != 0 sem criar nada.
 Gate: `python -m pytest tests/test_sync_skills.py -q`
 
-### T2: migrar a fonte e liberar os diretórios no git
+### T2: migrar a fonte e liberar os diretórios no git — concluída
 
 `git mv .claude/skills/_exemplo-skill .agents/skills/_exemplo-skill`; acrescentar `!/.agents/` e `!/.grok/` na seção "Pastas versionadas" do `.gitignore`; rodar `python tools/sync_skills.py` para gerar e versionar os dois espelhos.
 

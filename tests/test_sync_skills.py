@@ -8,8 +8,8 @@ idempotência (rodar duas vezes não muda nada na segunda) e a fonte ausente sai
 != 0 sem criar nada. Um smoke via subprocesso prova que a CLI (`--check`/`--root`)
 entrega o mesmo contrato que a função testada diretamente.
 
-`test_repo_real_sem_drift` (T2 — SKL-01) entra neste arquivo só depois de a fonte
-real ser migrada para `.agents/skills/`; nasce em commit separado.
+`test_repo_real_sem_drift` (T2 — SKL-01) confere o repositório real, já migrado:
+fonte em `.agents/skills/` e os dois espelhos idênticos a ela no índice git.
 """
 import importlib.util
 import subprocess
@@ -163,7 +163,8 @@ def test_fonte_ausente_sai_diferente_de_zero_sem_criar_nada(tmp_path):
 
 def test_cli_check_via_subprocesso():
     """A CLI (`--check`, `--root`) entrega o mesmo contrato da função — não só a
-    função testada em processo."""
+    função testada em processo. Desde a migração da fonte (T2), o repositório
+    real já está sincronizado, então o `--check` sai 0."""
     resultado = subprocess.run(
         [sys.executable, str(SCRIPT), "--check", "--root", str(RAIZ)],
         capture_output=True,
@@ -171,8 +172,36 @@ def test_cli_check_via_subprocesso():
         encoding="utf-8",
         timeout=TETO_SUBPROC,
     )
-    # Nesta task (T1) a fonte `.agents/skills/` ainda não existe no repo real —
-    # a migração é T2. O contrato exigido aqui é só "roda pela CLI e sai != 0
-    # sinalizando fonte ausente", não "está sincronizado".
-    assert resultado.returncode != 0
-    assert "fonte ausente" in resultado.stdout
+    assert resultado.returncode == 0, resultado.stdout + resultado.stderr
+    assert "sem divergência" in resultado.stdout
+
+
+def test_repo_real_sem_drift():
+    """T2 (SKL-01) — `--check` sobre o repositório real sai 0, e as três árvores
+    (fonte `.agents/skills/`, espelhos `.claude/skills/` e `.grok/skills/`) têm o
+    mesmo conjunto de caminhos relativos no índice git — não só no filesystem, que
+    poderia ter arquivo não versionado inflando a comparação."""
+    codigo, linhas = ss.sincronizar(RAIZ, check=True)
+    assert codigo == 0, linhas
+
+    indice = subprocess.run(
+        ["git", "ls-files"],
+        cwd=RAIZ,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=True,
+        timeout=TETO_SUBPROC,
+    ).stdout.splitlines()
+
+    def _relativos_a(prefixo: str) -> set[str]:
+        marca = prefixo + "/"
+        return {linha[len(marca):] for linha in indice if linha.startswith(marca)}
+
+    fonte = _relativos_a(".agents/skills")
+    claude = _relativos_a(".claude/skills")
+    grok = _relativos_a(".grok/skills")
+
+    assert fonte, "fonte .agents/skills/ vazia no índice git — migração (T2) não versionou nada"
+    assert fonte == claude, f"fonte x .claude/skills diverge: {fonte ^ claude}"
+    assert fonte == grok, f"fonte x .grok/skills diverge: {fonte ^ grok}"
