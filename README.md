@@ -111,6 +111,8 @@ As regras acima (segredo só em `.env`, nunca commit direto na `main`) deixaram 
 
 Both hooks fail closed. The interpreter wrapper (`.claude/hooks/run_hook.sh`) selects the repository `.venv` before falling back to system `python3` or `python`. `tests/test_hooks.py` proves the block and pass paths locally; run the full contract on each operating system the owner chooses to support.
 
+A project's MCP server declares itself in `.mcp.json` (versioned, starts as `{"mcpServers": {}}`). Any credential field in it uses `${NOME_DA_VAR}`, resolved from the environment — never a literal value.
+
 ---
 
 Criado por Caio Kohn

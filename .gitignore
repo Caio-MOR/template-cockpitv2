@@ -21,6 +21,7 @@
 !/.python-version
 !/.env.example
 !/pyproject.toml
+!/.mcp.json
 
 # Pastas versionadas
 !/.github/

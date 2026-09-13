@@ -108,12 +108,12 @@ T7
 
 **Done when**:
 
-- [ ] `.mcp.json` é JSON válido contendo exatamente a chave `mcpServers` com objeto vazio
-- [ ] Nenhum valor no arquivo casa com assinatura de credencial (`sk-`, `sk-ant-`, `ghp_`, `AKIA`, chave privada, JWT) - senão HYG-04 e HYG-06, hoje aprovados, reprovam
-- [ ] `.gitignore` ganhou `!/.mcp.json`
-- [ ] README explica, em até 3 linhas, que servidor MCP do projeto se declara em `.mcp.json` e que campo de credencial usa `${NOME_DA_VAR}`
-- [ ] `python tools/lint_routers.py` sai 0 (o README passa a citar `.mcp.json`, que precisa estar no índice git)
-- [ ] Gate build passa
+- [x] `.mcp.json` é JSON válido contendo exatamente a chave `mcpServers` com objeto vazio
+- [x] Nenhum valor no arquivo casa com assinatura de credencial (`sk-`, `sk-ant-`, `ghp_`, `AKIA`, chave privada, JWT) - senão HYG-04 e HYG-06, hoje aprovados, reprovam
+- [x] `.gitignore` ganhou `!/.mcp.json`
+- [x] README explica, em até 3 linhas, que servidor MCP do projeto se declara em `.mcp.json` e que campo de credencial usa `${NOME_DA_VAR}`
+- [x] `python tools/lint_routers.py` sai 0 (o README passa a citar `.mcp.json`, que precisa estar no índice git)
+- [x] Gate build passa
 
 **Tests**: none (config layer - gate only)
 **Gate**: build
