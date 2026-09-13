@@ -163,13 +163,13 @@ T7
 
 **Done when**:
 
-- [ ] Dois scripts novos em `.claude/hooks/` emitem o MESMO texto que hoje está inline (preservar o conteúdo palavra por palavra; é instrução de preservação de contexto, não reescrever)
-- [ ] `run_hook.sh` aceita os dois nomes novos na allowlist e continua recusando nome desconhecido
-- [ ] `.claude/settings.json` chama os dois via `sh "$CLAUDE_PROJECT_DIR/.claude/hooks/run_hook.sh" <script>`, no mesmo formato dos `PreToolUse` existentes
-- [ ] `.claude/settings.json` continua JSON válido e todo hook mantém `type` e `command` (HKS-01/HKS-02 valem 6 pontos hoje aprovados)
-- [ ] Nenhum `command` de hook contém token com `/` que não resolva para arquivo no índice git
-- [ ] `tests/test_hooks.py` cobre: saída de cada script novo, allowlist do wrapper (nome novo passa, nome desconhecido recusa), e que o `settings.json` não tem mais JSON inline nos dois eventos
-- [ ] Gate quick passa; gate full passa no fim
+- [x] Dois scripts novos em `.claude/hooks/` emitem o MESMO texto que hoje está inline (preservar o conteúdo palavra por palavra; é instrução de preservação de contexto, não reescrever)
+- [x] `run_hook.sh` aceita os dois nomes novos na allowlist e continua recusando nome desconhecido
+- [x] `.claude/settings.json` chama os dois via `sh "$CLAUDE_PROJECT_DIR/.claude/hooks/run_hook.sh" <script>`, no mesmo formato dos `PreToolUse` existentes
+- [x] `.claude/settings.json` continua JSON válido e todo hook mantém `type` e `command` (HKS-01/HKS-02 valem 6 pontos hoje aprovados)
+- [x] Nenhum `command` de hook contém token com `/` que não resolva para arquivo no índice git
+- [x] `tests/test_hooks.py` cobre: saída de cada script novo, allowlist do wrapper (nome novo passa, nome desconhecido recusa), e que o `settings.json` não tem mais JSON inline nos dois eventos
+- [x] Gate quick passa; gate full passa no fim (exceto `test_coleta_medida_e_piso_batem_com_a_coleta_real`, desvio declarado: T7 reconcilia `COLETA_MEDIDA` ao fim da Fase 2/3, fora do escopo desta task)
 
 **Tests**: unit
 **Gate**: full

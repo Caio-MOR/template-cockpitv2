@@ -387,3 +387,74 @@ def test_hooks_pretooluse_com_matcher_bash_e_edit_write_multiedit_presentes():
     matchers = {bloco.get("matcher") for bloco in hooks}
     assert "Bash" in matchers, matchers
     assert any("Edit" in (m or "") and "Write" in (m or "") for m in matchers), matchers
+
+
+# ---------------------------------------------------------------------------
+# T4 — PreCompact/SessionStart saem de string inline e viram script versionado
+
+
+TEXTO_PRECOMPACT = (
+    '{"hookSpecificOutput":{"hookEventName":"PreCompact","additionalContext":'
+    '"Instrucao obrigatoria para o resumo de compactacao: preserve integralmente '
+    '(1) a lista de arquivos modificados na sessao, (2) as decisoes-chave tomadas '
+    'e (3) os comandos de verificacao/teste ainda em aberto."}}'
+)
+
+TEXTO_SESSIONSTART_COMPACT = (
+    "Contexto recem-compactado. Antes de prosseguir, confirme que o resumo "
+    "preservou: (1) arquivos modificados na sessao, (2) decisoes-chave tomadas, "
+    "(3) comandos de verificacao/teste em aberto. Se algo se perdeu, recupere via "
+    "git status, .specs/STATE.md ou logs do workflow antes de continuar."
+)
+
+
+def test_precompact_contexto_emite_o_texto_exato():
+    r = _rodar_hook("precompact_contexto.py", {})
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert r.stdout.rstrip("\n") == TEXTO_PRECOMPACT
+
+
+def test_sessionstart_contexto_emite_o_texto_exato():
+    r = _rodar_hook("sessionstart_contexto.py", {})
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert r.stdout.rstrip("\n") == TEXTO_SESSIONSTART_COMPACT
+
+
+def test_run_hook_aceita_precompact_contexto_na_allowlist():
+    r = subprocess.run(
+        [_sh(), str(RUN_HOOK), "precompact_contexto.py"], input="{}",
+        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=TETO,
+        env={**__import__("os").environ, "CLAUDE_PROJECT_DIR": str(RAIZ)},
+    )
+    assert r.returncode == 0, r.stdout + r.stderr
+
+
+def test_run_hook_aceita_sessionstart_contexto_na_allowlist():
+    r = subprocess.run(
+        [_sh(), str(RUN_HOOK), "sessionstart_contexto.py"], input="{}",
+        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=TETO,
+        env={**__import__("os").environ, "CLAUDE_PROJECT_DIR": str(RAIZ)},
+    )
+    assert r.returncode == 0, r.stdout + r.stderr
+
+
+def test_run_hook_continua_recusando_nome_desconhecido():
+    r = subprocess.run(
+        [_sh(), str(RUN_HOOK), "script_inexistente.py"], input="{}",
+        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=TETO,
+        env={**__import__("os").environ, "CLAUDE_PROJECT_DIR": str(RAIZ)},
+    )
+    assert r.returncode == 2, r.stdout + r.stderr
+
+
+def test_settings_precompact_e_sessionstart_sem_json_inline():
+    """Nenhum dos dois eventos volta a ter o texto embutido direto no `command` —
+    ambos chamam `run_hook.sh` com o nome do script versionado."""
+    precompact = _settings()["hooks"]["PreCompact"][0]["hooks"][0]["command"]
+    sessionstart = _settings()["hooks"]["SessionStart"][0]["hooks"][0]["command"]
+    for comando, script in (
+        (precompact, "precompact_contexto.py"),
+        (sessionstart, "sessionstart_contexto.py"),
+    ):
+        assert not comando.strip().startswith("echo"), comando
+        assert "run_hook.sh" in comando and script in comando, comando

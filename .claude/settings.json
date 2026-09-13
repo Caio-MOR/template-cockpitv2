@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreCompact\",\"additionalContext\":\"Instrucao obrigatoria para o resumo de compactacao: preserve integralmente (1) a lista de arquivos modificados na sessao, (2) as decisoes-chave tomadas e (3) os comandos de verificacao/teste ainda em aberto.\"}}'",
+            "command": "sh \"$CLAUDE_PROJECT_DIR/.claude/hooks/run_hook.sh\" precompact_contexto.py",
             "statusMessage": "Preservando contexto essencial",
             "timeout": 10
           }
@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo 'Contexto recem-compactado. Antes de prosseguir, confirme que o resumo preservou: (1) arquivos modificados na sessao, (2) decisoes-chave tomadas, (3) comandos de verificacao/teste em aberto. Se algo se perdeu, recupere via git status, .specs/STATE.md ou logs do workflow antes de continuar.'",
+            "command": "sh \"$CLAUDE_PROJECT_DIR/.claude/hooks/run_hook.sh\" sessionstart_contexto.py",
             "timeout": 10
           }
         ]
