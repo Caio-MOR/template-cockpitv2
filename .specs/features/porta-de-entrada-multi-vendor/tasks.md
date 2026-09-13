@@ -111,7 +111,7 @@ flowchart TD
     T9 --> T11[T11 docs dos não-objetivos]
 ```
 
-### T9: `AGENTS.md` vira porta de entrada explícita
+### T9: `AGENTS.md` vira porta de entrada explícita — concluída
 
 Acrescenta a tabela de cobertura por agente com no máximo 6 linhas; cita entre crases `SECURITY.md`, `README.md`, cada arquivo de `.claude/rules/` e cada documento de `docs/`; remove a seção "Arquitetura WAT", a frase "Os 4 modos de falha que mais derrubam acerto" e o parágrafo "Resumo".
 
