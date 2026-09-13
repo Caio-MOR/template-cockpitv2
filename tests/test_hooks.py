@@ -21,6 +21,7 @@ import json
 import re
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -36,7 +37,9 @@ def _sh() -> str:
     return "sh" if shutil.which("sh") else "bash"
 
 
-def _rodar_hook(hook: str, payload: dict, cwd: Path | None = None) -> subprocess.CompletedProcess:
+def _rodar_hook(
+    hook: str, payload: dict, cwd: Path | None = None, env_extra: dict | None = None,
+) -> subprocess.CompletedProcess:
     return subprocess.run(
         [_sh(), str(RUN_HOOK), hook],
         input=json.dumps(payload),
@@ -46,7 +49,7 @@ def _rodar_hook(hook: str, payload: dict, cwd: Path | None = None) -> subprocess
         errors="replace",
         timeout=TETO,
         cwd=str(cwd) if cwd else None,
-        env={**__import__("os").environ, "CLAUDE_PROJECT_DIR": str(RAIZ)},
+        env={**__import__("os").environ, "CLAUDE_PROJECT_DIR": str(RAIZ), **(env_extra or {})},
     )
 
 
@@ -458,3 +461,131 @@ def test_settings_precompact_e_sessionstart_sem_json_inline():
     ):
         assert not comando.strip().startswith("echo"), comando
         assert "run_hook.sh" in comando and script in comando, comando
+
+
+# ---------------------------------------------------------------------------
+# T5 — ruff_feedback.py (PostToolUse): devolve achado do ruff sem bloquear
+
+
+FAKE_RUFF = RAIZ / "tests" / "fixtures" / "fake_ruff.py"
+
+
+def _env_fake_ruff(modo: str, timeout: str | None = None) -> dict:
+    env = {
+        "RUFF_FEEDBACK_CMD": f'"{sys.executable}" "{FAKE_RUFF}"',
+        "FAKE_RUFF_MODE": modo,
+    }
+    if timeout is not None:
+        env["RUFF_FEEDBACK_TIMEOUT_SEC"] = timeout
+    return env
+
+
+def test_ruff_feedback_devolve_achado_sem_bloquear():
+    r = _rodar_hook(
+        "ruff_feedback.py",
+        {"tool_input": {"file_path": "conftest.py"}},
+        env_extra=_env_fake_ruff("achado"),
+    )
+    assert r.returncode == 0, r.stdout + r.stderr
+    saida = json.loads(r.stdout)
+    contexto = saida["hookSpecificOutput"]["additionalContext"]
+    assert "E501" in contexto
+    assert saida["hookSpecificOutput"]["hookEventName"] == "PostToolUse"
+
+
+def test_ruff_feedback_arquivo_limpo_sai_zero_sem_saida():
+    r = _rodar_hook(
+        "ruff_feedback.py",
+        {"tool_input": {"file_path": "conftest.py"}},
+        env_extra=_env_fake_ruff("limpo"),
+    )
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert r.stdout.strip() == ""
+
+
+def test_ruff_feedback_ruff_ausente_degrada_em_silencio():
+    r = _rodar_hook(
+        "ruff_feedback.py",
+        {"tool_input": {"file_path": "conftest.py"}},
+        env_extra={"RUFF_FEEDBACK_CMD": "ruff_binario_que_nao_existe_xyz"},
+    )
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert r.stdout.strip() == ""
+
+
+def test_ruff_feedback_timeout_degrada_em_silencio():
+    r = _rodar_hook(
+        "ruff_feedback.py",
+        {"tool_input": {"file_path": "conftest.py"}},
+        env_extra=_env_fake_ruff("timeout", timeout="0.3"),
+    )
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert r.stdout.strip() == ""
+
+
+def test_ruff_feedback_erro_sem_stdout_nao_emite_nada():
+    r = _rodar_hook(
+        "ruff_feedback.py",
+        {"tool_input": {"file_path": "conftest.py"}},
+        env_extra=_env_fake_ruff("erro_sem_stdout"),
+    )
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert r.stdout.strip() == ""
+
+
+def test_ruff_feedback_json_invalido_no_stdin_degrada_em_silencio():
+    r = subprocess.run(
+        [_sh(), str(RUN_HOOK), "ruff_feedback.py"], input="isto nao e json",
+        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=TETO,
+        env={**__import__("os").environ, "CLAUDE_PROJECT_DIR": str(RAIZ), **_env_fake_ruff("achado")},
+    )
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert r.stdout.strip() == ""
+
+
+def test_ruff_feedback_file_path_ausente_degrada_em_silencio():
+    r = _rodar_hook(
+        "ruff_feedback.py",
+        {"tool_input": {}},
+        env_extra=_env_fake_ruff("achado"),
+    )
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert r.stdout.strip() == ""
+
+
+def test_ruff_feedback_arquivo_fora_do_projeto_degrada_em_silencio(tmp_path: Path):
+    alheio = tmp_path / "fora.py"
+    alheio.write_text("x = 1\n", encoding="utf-8")
+    r = _rodar_hook(
+        "ruff_feedback.py",
+        {"tool_input": {"file_path": str(alheio)}},
+        env_extra=_env_fake_ruff("achado"),
+    )
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert r.stdout.strip() == ""
+
+
+def test_ruff_feedback_ignora_arquivo_nao_py():
+    r = _rodar_hook(
+        "ruff_feedback.py",
+        {"tool_input": {"file_path": "README.md"}},
+        env_extra=_env_fake_ruff("achado"),
+    )
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert r.stdout.strip() == ""
+
+
+def test_run_hook_aceita_ruff_feedback_na_allowlist():
+    r = _rodar_hook("ruff_feedback.py", {"tool_input": {}})
+    assert r.returncode == 0, r.stdout + r.stderr
+
+
+def test_settings_registra_posttooluse_com_matcher_edit_write_multiedit():
+    hooks = _settings().get("hooks", {}).get("PostToolUse", [])
+    assert hooks, "settings.json sem hooks PostToolUse"
+    matchers = {bloco.get("matcher") for bloco in hooks}
+    assert any("Edit" in (m or "") and "Write" in (m or "") for m in matchers), matchers
+    for bloco in hooks:
+        for h in bloco.get("hooks", []):
+            assert h.get("type") == "command", h
+            assert "run_hook.sh" in h.get("command", ""), h

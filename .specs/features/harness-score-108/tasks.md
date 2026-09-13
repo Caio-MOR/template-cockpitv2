@@ -191,15 +191,15 @@ T7
 
 **Done when**:
 
-- [ ] O script lê o JSON do stdin, extrai o caminho do arquivo editado e só age em arquivo `.py` dentro do projeto
-- [ ] Com `ruff` instalado e arquivo com erro: o hook devolve o texto do erro ao agente pelo canal documentado do `PostToolUse` e NÃO bloqueia a edição
-- [ ] Com `ruff` instalado e arquivo limpo: saída vazia, exit 0
-- [ ] Sem `ruff` instalado, ou se a chamada estourar: exit 0, sem saída, sem exceção vazando (a máquina Windows do dono tem `ruff.exe` bloqueado por antivírus)
-- [ ] Arquivo fora do projeto, caminho ausente ou JSON inválido no stdin: exit 0 em silêncio
-- [ ] `run_hook.sh` ganhou o nome novo na allowlist
-- [ ] `.claude/settings.json` registra o hook no evento `PostToolUse` com matcher `Edit|Write|MultiEdit`, e segue JSON válido
-- [ ] `tests/test_hooks.py` cobre os 5 ramos acima com `ruff` simulado (sem depender de `ruff` real na máquina)
-- [ ] Gate full passa
+- [x] O script lê o JSON do stdin, extrai o caminho do arquivo editado e só age em arquivo `.py` dentro do projeto
+- [x] Com `ruff` instalado e arquivo com erro: o hook devolve o texto do erro ao agente pelo canal documentado do `PostToolUse` e NÃO bloqueia a edição
+- [x] Com `ruff` instalado e arquivo limpo: saída vazia, exit 0
+- [x] Sem `ruff` instalado, ou se a chamada estourar: exit 0, sem saída, sem exceção vazando (a máquina Windows do dono tem `ruff.exe` bloqueado por antivírus)
+- [x] Arquivo fora do projeto, caminho ausente ou JSON inválido no stdin: exit 0 em silêncio
+- [x] `run_hook.sh` ganhou o nome novo na allowlist
+- [x] `.claude/settings.json` registra o hook no evento `PostToolUse` com matcher `Edit|Write|MultiEdit`, e segue JSON válido
+- [x] `tests/test_hooks.py` cobre os 5 ramos acima com `ruff` simulado (sem depender de `ruff` real na máquina)
+- [x] Gate full passa (mesmo desvio declarado em T4: `test_coleta_medida_e_piso_batem_com_a_coleta_real` fica vermelho até T7 reconciliar `COLETA_MEDIDA`)
 
 **Tests**: unit
 **Gate**: full

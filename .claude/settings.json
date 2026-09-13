@@ -45,6 +45,18 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh \"$CLAUDE_PROJECT_DIR/.claude/hooks/run_hook.sh\" ruff_feedback.py",
+            "timeout": 15
+          }
+        ]
+      }
     ]
   },
   "permissions": {
