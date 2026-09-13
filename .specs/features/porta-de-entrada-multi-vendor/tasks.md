@@ -146,7 +146,7 @@ flowchart TD
     T12[T12 rodar a trilha A e comparar]
 ```
 
-### T12: rodar a trilha A do `harness-eval` e registrar o antes/depois
+### T12: rodar a trilha A do `harness-eval` e registrar o antes/depois — concluída (execução completa; AC-7 só parcialmente atendido)
 
 Roda `inventory_extract.py` e `track_a_correctness.py` contra o repositório, com saída fora dele, e registra a comparação com o run `2026-09-13-trilhaA`.
 
@@ -154,6 +154,8 @@ Depends on: T11
 Requirements: ROT-02, GAT-03
 Tests: comparação do `inventory.json` novo com o antigo afirmando que `SECURITY.md`, os 6 arquivos de `.claude/rules/` e a skill de `.agents/skills/` entraram na superfície, e que o `04-correctness.json` segue com zero findings.
 Gate: `python tools/gate_veredito.py`
+
+Registro em `.specs/features/porta-de-entrada-multi-vendor/harness-eval-antes-depois.md`: os três alvos entraram na superfície (passa), mas o run `2026-09-13-depois` encontrou 1 finding BROKEN (`docs/COBERTURA-VENDOR.md` cita `.cursor/hooks.json`, que não existe no repo — é exemplo de schema de outro vendor, não um caminho deste repositório). AC-7 fica pendente na condição "0 findings BROKEN" até essa citação ser ajustada e a trilha A rodar limpa de novo.
 
 ## Execution Plan
 
