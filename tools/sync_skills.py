@@ -21,22 +21,35 @@ Contrato (design.md da feature `porta-de-entrada-multi-vendor`):
 - Fonte ausente: sai != 0 sem criar nada em nenhum destino.
 - Zero dependência third-party, como o resto de `tools/`.
 
-Uso:
-    python tools/sync_skills.py            # escreve os espelhos
-    python tools/sync_skills.py --check    # só verifica; não escreve
+Skill instalada por ferramenta externa (ex.: `npx @tech-leads-club/agent-skills
+install --skill <x>`) cai só em `.claude/skills/<x>/` — órfã para este contrato, e
+o modo escrita a APAGARIA. `--adotar <x>` move a pasta do espelho para a fonte e
+então espelha; é o passo documentado no README depois de instalar qualquer skill.
+`tools/doctor.py` acusa órfão e espelho faltante.
 
-Exit: 0 = ok (sincronizado, ou já idêntico); 1 = divergência (`--check`) ou fonte
-ausente; 2 = uso inválido.
+Uso:
+    python tools/sync_skills.py                 # escreve os espelhos
+    python tools/sync_skills.py --check         # só verifica; não escreve
+    python tools/sync_skills.py --adotar <x>    # move .claude/skills/<x> (ou .grok/) para a fonte e espelha
+
+Exit: 0 = ok (sincronizado, ou já idêntico); 1 = divergência (`--check`), fonte
+ausente ou skill a adotar inexistente/já na fonte; 2 = uso inválido.
 """
 from __future__ import annotations
 
 import argparse
+import datetime
 import shutil
 import sys
 from pathlib import Path
 
 FONTE_REL = Path(".agents") / "skills"
 DESTINOS_REL = (Path(".claude") / "skills", Path(".grok") / "skills")
+# Marcador que `--adotar` grava dentro da skill adotada. Skill de terceiro não é
+# "skill nova" deste repo: os gates de criação (declaração de formato do grafo,
+# evals de disparo em `evals/<skill>/`) leem este arquivo e a isentam — o que
+# ela faz é responsabilidade de quem a publicou, e editá-la aqui é fork silencioso.
+MARCADOR_VENDORIZADA = "VENDORIZADA.md"
 
 
 def _arquivos_relativos(base: Path) -> set[Path]:
@@ -110,6 +123,37 @@ def escrever_espelho(fonte: Path, destino: Path, divergencias: list[tuple[Path, 
     return relato
 
 
+def adotar(root: Path, nome: str) -> tuple[int, list[str]]:
+    """Move `<espelho>/<nome>/` para a fonte e espelha o resultado.
+
+    Só adota o que a fonte ainda não tem: skill já na fonte é caso de `--check`/
+    escrita normal, não de adoção. Procura nos destinos na ordem declarada
+    (`.claude/skills` primeiro, onde instaladores externos escrevem)."""
+    if not nome or nome in (".", "..") or "/" in nome or "\\" in nome:
+        return 2, [f"sync_skills --adotar: nome de skill inválido ({nome!r})"]
+    fonte = root / FONTE_REL / nome
+    if fonte.exists():
+        return 1, [f"sync_skills --adotar: {(FONTE_REL / nome).as_posix()} já existe na fonte — rode sem --adotar"]
+    for destino_rel in DESTINOS_REL:
+        origem = root / destino_rel / nome
+        if origem.is_dir():
+            fonte.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(origem), str(fonte))
+            (fonte / MARCADOR_VENDORIZADA).write_text(
+                f"# Skill vendorizada\n\n"
+                f"`{nome}` é skill de terceiro, adotada de `{(destino_rel / nome).as_posix()}` por "
+                f"`python tools/sync_skills.py --adotar {nome}` em {datetime.date.today().isoformat()}.\n"
+                f"Não edite aqui (reinstale e adote de novo); os gates de skill nova "
+                f"(formato do grafo, evals de disparo) não se aplicam a ela.\n",
+                encoding="utf-8",
+            )
+            relato = [f"adotado\t{(destino_rel / nome).as_posix()} -> {(FONTE_REL / nome).as_posix()}"]
+            codigo, linhas = sincronizar(root, check=False)
+            return codigo, relato + linhas
+    procurados = ", ".join((d / nome).as_posix() for d in DESTINOS_REL)
+    return 1, [f"sync_skills --adotar: skill {nome!r} não encontrada em nenhum espelho ({procurados})"]
+
+
 def sincronizar(root: Path, check: bool) -> tuple[int, list[str]]:
     """Núcleo testável: roda o contrato sobre `root`, sem tocar em `sys.argv` nem
     em stdout. Devolve (exit_code, linhas_de_relato)."""
@@ -160,11 +204,18 @@ def main(argv: list[str] | None = None) -> int:
         _preparar_saida(fluxo)
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--check", action="store_true", help="só verifica; não escreve nada")
+    parser.add_argument("--adotar", metavar="SKILL", default=None,
+                        help="move .claude/skills/SKILL (ou .grok/) para a fonte .agents/skills/ e espelha")
     parser.add_argument("--root", default=None, help="raiz do repo (default: cwd)")
     args = parser.parse_args(argv)
+    if args.check and args.adotar:
+        parser.error("--check e --adotar são exclusivos")
 
     root = Path(args.root).resolve() if args.root else Path.cwd()
-    codigo, linhas = sincronizar(root, check=args.check)
+    if args.adotar:
+        codigo, linhas = adotar(root, args.adotar)
+    else:
+        codigo, linhas = sincronizar(root, check=args.check)
     for linha in linhas:
         print(linha)
     return codigo

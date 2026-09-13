@@ -24,6 +24,12 @@ uv venv .venv --python 3.12.13
 uv pip install --require-hashes -r requirements.txt
 ```
 
+Para atualizar dependências, edite `requirements.in` e regenere o lock com
+`uv pip compile --universal --generate-hashes --python-version 3.12 requirements.in -o requirements.txt`
+(o comando fica no cabeçalho do próprio `requirements.txt`). `pip-compile` sem `--allow-unsafe`
+gera um lock que deixa `pip` de fora e quebra o `uv pip install --require-hashes` acima;
+`PY tools/doctor.py` reprova esse lock.
+
 The root `.venv` is the only interpreter for repository commands. In the command list
 below, `PY` and `GITLEAKS` are metavariables, not literal shell commands. On Mac/Linux,
 run `PY=.venv/bin/python` and then `"$PY" tools/gate_veredito.py`. In PowerShell, run
@@ -100,6 +106,12 @@ Depois, no clone novo, é o **agente** quem executa este checklist ao abrir a pr
    claude plugin install os-audit@caio-mor
    ```
    Conferir com `claude plugin list` e colar a saída na entrega.
+
+   **Skill instalada por ferramenta externa** (ex.: `npx @tech-leads-club/agent-skills install --skill tlc-spec-lean`) cai só em `.claude/skills/<skill>/` (as cópias em `.cursor/` e `.windsurf/` ficam fora do git). A fonte deste repo é `.agents/skills/`, e o gate de espelho (`tests/test_sync_skills.py`) reprova a skill órfã. Logo depois de instalar, rode:
+   ```
+   PY tools/sync_skills.py --adotar <skill>
+   ```
+   Isso move a pasta para `.agents/skills/`, grava nela o marcador `VENDORIZADA.md` (arquivo que ainda não existe no template: nasce na adoção; skill de terceiro não deve formato de grafo nem evals a este repo; os gates de skill nova leem o marcador) e regrava os espelhos `.claude/skills/` e `.grok/skills/`. `PY tools/doctor.py` acusa skill órfã ou espelho faltante e diz o comando.
 7. Primeiro commit em branch + PR: o hook roda os gates no push, o CI de PR repete como rede. Cole a saída dos comandos acima (commit, SO, versão do Python) na entrega; comando ausente ou vermelho não vira "passou".
 
 ## O que o Claude Code bloqueia sozinho neste repo

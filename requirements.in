@@ -1,5 +1,8 @@
-# Dependências diretas de desenvolvimento — o lock requirements.txt é gerado
-# com `uv pip compile --universal --generate-hashes requirements.in`.
+# Dependências diretas de desenvolvimento — o lock requirements.txt é gerado com
+#   uv pip compile --universal --generate-hashes --python-version 3.12 requirements.in -o requirements.txt
+# Nunca com pip-compile sem `--allow-unsafe`: ele deixa `pip` (exigido pelo pip-audit)
+# fora do lock e `uv pip install --require-hashes` falha com "found: pip";
+# `tools/doctor.py` acusa esse lock.
 bandit
 mypy>=2,<3
 pip-audit

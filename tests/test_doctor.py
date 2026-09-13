@@ -34,7 +34,7 @@ def test_empty_schema_is_a_valid_cockpit(tmp_path: Path) -> None:
     report = doctor.check(_repo(tmp_path), python_version=(3, 12, 13))
 
     assert report.ok
-    assert report.checked == ("python", "git", "hooks", "security", "environment")
+    assert report.checked == ("python", "git", "hooks", "security", "environment", "dependencies", "skills")
 
 
 def test_required_and_optional_fields_use_names_only(tmp_path: Path) -> None:
@@ -157,6 +157,78 @@ def test_env_file_parent_traversal_fails_closed(tmp_path: Path) -> None:
     report = doctor.check(repo, env_file="../outside.env", environ={})
 
     assert "env_file_unsafe" in _codes(report)
+
+# Lock que pip-compile gerou sem `--allow-unsafe`: o bloco final "not pinned" lista
+# `pip`, e `uv pip install --require-hashes -r requirements.txt` (comando do README)
+# morre com "found: pip". Foi o que aconteceu na primeira instância real do template.
+LOCK_SEM_PIP = (
+    "pip-audit==2.10.1 \\\n    --hash=sha256:abc\n    # via -r requirements.in\n\n"
+    "# WARNING: The following packages were not pinned, but pip requires them to be\n"
+    "# satisfied by a package already installed. Consider using the --allow-unsafe flag.\n"
+    "# pip\n"
+)
+LOCK_COMPLETO = "pip-audit==2.10.1 \\\n    --hash=sha256:abc\npip==26.2.1 \\\n    --hash=sha256:def\n"
+
+
+def test_lock_with_unpinned_requirement_is_reported_with_the_regenerate_command(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    (repo / "requirements.txt").write_text(LOCK_SEM_PIP, encoding="utf-8")
+    report = doctor.check(repo, python_version=(3, 12, 13))
+    assert doctor.DoctorIssue("dependencies", "lock_unpinned_requirement", "pip") in report.issues
+    assert "uv pip compile" in report.render()
+    assert "--generate-hashes" in report.render()
+
+
+def test_lock_that_pins_everything_passes_and_missing_lock_is_not_the_doctors_job(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    assert "lock_unpinned_requirement" not in _codes(doctor.check(repo, python_version=(3, 12, 13)))
+    (repo / "requirements.txt").write_text(LOCK_COMPLETO, encoding="utf-8")
+    assert doctor.check(repo, python_version=(3, 12, 13)).ok
+
+
+def test_the_repositorys_own_lock_has_no_unpinned_requirement() -> None:
+    raiz = Path(__file__).resolve().parents[1]
+    assert doctor.unpinned_lock_requirements((raiz / "requirements.txt").read_text(encoding="utf-8")) == []
+
+
+def _skill(root: Path, arvore: str, nome: str, texto: str = "# skill\n") -> Path:
+    alvo = root / arvore / "skills" / nome / "SKILL.md"
+    alvo.parent.mkdir(parents=True, exist_ok=True)
+    alvo.write_text(texto, encoding="utf-8")
+    return alvo
+
+
+def test_skill_installed_only_in_claude_mirror_is_reported_with_the_adopt_command(tmp_path: Path) -> None:
+    """`npx @tech-leads-club/agent-skills install --skill X` deixa só `.claude/skills/X`;
+    o gate SKL-04 reprova como órfão. O doctor diz o caminho e o comando de adoção."""
+    repo = _repo(tmp_path)
+    for arvore in (".agents", ".claude", ".grok"):
+        _skill(repo, arvore, "_exemplo-skill")
+    _skill(repo, ".claude", "tlc-spec-lean")
+    report = doctor.check(repo, python_version=(3, 12, 13))
+    assert doctor.DoctorIssue("skills", "skill_only_in_mirror", ".claude/skills/tlc-spec-lean/SKILL.md") in report.issues
+    assert "sync_skills.py --adotar" in report.render()
+
+
+def test_skill_missing_or_different_in_a_mirror_is_reported_with_the_sync_command(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    for arvore in (".agents", ".claude", ".grok"):
+        _skill(repo, arvore, "_exemplo-skill")
+    _skill(repo, ".agents", "nova")
+    _skill(repo, ".grok", "_exemplo-skill", "# outro conteudo\n")
+    codes = {(issue.code, issue.name) for issue in doctor.check(repo, python_version=(3, 12, 13)).issues}
+    assert ("skill_mirror_drift", ".claude/skills/nova/SKILL.md") in codes
+    assert ("skill_mirror_drift", ".grok/skills/nova/SKILL.md") in codes
+    assert ("skill_mirror_drift", ".grok/skills/_exemplo-skill/SKILL.md") in codes
+
+
+def test_mirrored_skills_and_a_repo_without_skills_pass(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    assert not {i for i in doctor.check(repo, python_version=(3, 12, 13)).issues if i.check == "skills"}
+    for arvore in (".agents", ".claude", ".grok"):
+        _skill(repo, arvore, "_exemplo-skill")
+    assert doctor.check(repo, python_version=(3, 12, 13)).ok
+
 
 # O caso de symlink (`.env-link` -> `.env-real`) vive em `tests/test_symlink_privilegio.py`:
 # criar symlink exige privilégio no Windows e um teste pulado num arquivo de gate

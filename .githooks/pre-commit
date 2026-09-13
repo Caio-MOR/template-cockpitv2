@@ -79,10 +79,15 @@ gate() {
 # ruff só nos .py staged; sem nenhum .py staged, o gate não tem o que rodar.
 ARQUIVOS_PY_STAGED=$(printf '%s\n' "$ARQUIVOS_STAGED" | grep '\.py$') || true
 
+# `--force-exclude`: com lista explícita de arquivos, o ruff IGNORA `exclude`/
+# `extend-exclude` do pyproject.toml — skill vendorizada de terceiro (ex.:
+# `.claude/skills/<x>/scripts/*.py`) bloqueava o commit com achado que não é nosso.
+# A flag faz a exclusão valer também para caminho passado na linha de comando, o
+# mesmo conjunto que `ruff check .` (pre-push e CI) já pula.
 if [ -n "$ARQUIVOS_PY_STAGED" ]; then
     if ruff_version; then
         # shellcheck disable=SC2086  # lista de arquivos, um por linha, sem espaço
-        gate "lint de estilo dos arquivos staged (ruff)" ruff_check $ARQUIVOS_PY_STAGED
+        gate "lint de estilo dos arquivos staged (ruff)" ruff_check --force-exclude $ARQUIVOS_PY_STAGED
     else
         echo "[pre-commit] AVISO: ruff não está instalado neste interpretador; o lint de estilo fica para o pre-push/CI." >&2
     fi

@@ -143,6 +143,16 @@ def _skills(indice) -> list:
     return sorted(pasta for pasta in _pastas(indice, SKILLS) if f"{SKILLS}{pasta}/SKILL.md" in indice)
 
 
+# Skill de terceiro adotada por `tools/sync_skills.py --adotar` (marcador gravado pela
+# própria ferramenta): não é criação nova deste repo, então formato do grafo e evals de
+# disparo não lhe são cobrados. Frontmatter e refs internas continuam valendo.
+VENDORIZADA = "VENDORIZADA.md"
+
+
+def _vendorizadas(indice) -> frozenset:
+    return frozenset(s for s in _skills(indice) if f"{SKILLS}{s}/{VENDORIZADA}" in indice)
+
+
 def _workflows(indice) -> list:
     return sorted(
         pasta for pasta in _pastas(indice, WORKFLOWS) if f"{WORKFLOWS}{pasta}/workflow.md" in indice
@@ -179,9 +189,10 @@ def _skills_com_name_divergente(indice, ler, legado) -> dict:
 
 
 def _skills_sem_formato(indice, ler, legado) -> list:
+    isentas = legado | _vendorizadas(indice)
     return [
         skill for skill in _skills(indice)
-        if skill not in legado and not _skill_declara_formato(ler(f"{SKILLS}{skill}/SKILL.md"))
+        if skill not in isentas and not _skill_declara_formato(ler(f"{SKILLS}{skill}/SKILL.md"))
     ]
 
 
@@ -240,8 +251,9 @@ def _skills_sem_evals_completos(indice, ler, legado) -> dict:
     ganha a porta de disparo — ver `docs/evals.md` e o marketplace `caio-mor`, que exige
     3+3). Tags são lidas cru do frontmatter (parse por linha, sem pyyaml)."""
     problemas = {}
+    isentas = legado | _vendorizadas(indice)
     for skill in _skills(indice):
-        if skill in legado:
+        if skill in isentas:
             continue
         casos = _casos_evals(indice, skill)
         if not casos:
@@ -536,6 +548,23 @@ def test_sintetico_skill_nova_sem_formato_ou_com_formato_invalido_reprova():
     assert _skills_sem_formato(indice, ler, frozenset()) == ["banana", "nova"]
     assert _skills_sem_formato(indice, ler, frozenset({"nova", "banana"})) == []
     assert not RE_FORMATO_SKILL.match("formato: banana")
+
+
+def test_sintetico_skill_vendorizada_e_isenta_de_formato_e_evals_mas_nao_de_frontmatter():
+    """Reprodução da instância: `tlc-spec-lean` adotada por `sync_skills --adotar`
+    (sem formato, sem evals) reprovava os dois gates. Com o marcador gravado pela
+    ferramenta, os dois a isentam; sem o marcador, a mesma skill segue reprovando.
+    Frontmatter incompleto reprova mesmo vendorizada."""
+    com_marcador = frozenset({f"{SKILLS}tlc/SKILL.md", f"{SKILLS}tlc/{VENDORIZADA}", f"{SKILLS}tlc/scripts/lessons.py"})
+    sem_marcador = frozenset({f"{SKILLS}tlc/SKILL.md", f"{SKILLS}tlc/scripts/lessons.py"})
+    ler = _leitor({f"{SKILLS}tlc/SKILL.md": "---\nname: tlc\ndescription: skill de terceiro\n---\n# tlc\n"})
+    assert _vendorizadas(com_marcador) == frozenset({"tlc"})
+    assert _skills_sem_formato(com_marcador, ler, frozenset()) == []
+    assert _skills_sem_evals_completos(com_marcador, ler, frozenset()) == {}
+    assert _skills_sem_formato(sem_marcador, ler, frozenset()) == ["tlc"]
+    assert _skills_sem_evals_completos(sem_marcador, ler, frozenset()) == {"tlc": ["sem pasta evals/<skill>/ com casos"]}
+    sem_desc = _leitor({f"{SKILLS}tlc/SKILL.md": "---\nname: tlc\n---\n"})
+    assert "tlc" in _skills_com_frontmatter_incompleto(com_marcador, sem_desc)
 
 
 def test_sintetico_ref_interna_morta_reprova_e_glob_e_ignorado():

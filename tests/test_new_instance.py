@@ -1,4 +1,12 @@
-"""Temporary-copy proof for explicit template initialization."""
+"""Temporary-copy proof for explicit template initialization.
+
+A cópia usada nos testes recebe o `STATE.md` DO TEMPLATE (`TEMPLATE_STATE`), não o
+do disco: o que está sob prova é o inicializador sobre o estado que o template
+entrega, e o `STATE.md` real de uma instância acumula decisões (AD-nnn) desde a
+primeira sessão. Sem isso a primeira decisão registrada numa instância quebrava
+este arquivo inteiro — o inicializador recusa STATE que não seja o do template, e
+era exatamente o que a cópia carregava.
+"""
 from __future__ import annotations
 
 import shutil
@@ -18,11 +26,13 @@ def _git(*args: str, cwd: Path) -> subprocess.CompletedProcess:
                           encoding="utf-8", errors="replace", timeout=60, check=True)
 
 
-def _copy_template(tmp_path: Path) -> Path:
+def _copy_template(tmp_path: Path, source: Path = RAIZ) -> Path:
     """Cópia do template como repositório git próprio — é o que `gh repo create
-    --template` entrega, e é onde o inicializador ativa `core.hooksPath`."""
+    --template` entrega, e é onde o inicializador ativa `core.hooksPath`. O
+    `STATE.md` da cópia é sempre o do template (ver docstring do módulo)."""
     instance = tmp_path / "instance"
-    shutil.copytree(RAIZ, instance, ignore=shutil.ignore_patterns(".git", ".venv", ".pytest_cache", ".ruff_cache", ".tmp", "__pycache__"))
+    shutil.copytree(source, instance, ignore=shutil.ignore_patterns(".git", ".venv", ".pytest_cache", ".ruff_cache", ".tmp", "__pycache__"))
+    (instance / ".specs" / "STATE.md").write_text(initialize_template.TEMPLATE_STATE, encoding="utf-8")
     _git("init", "-q", "-b", "main", cwd=instance)
     _git("config", "user.email", "t@t.invalid", cwd=instance)
     _git("config", "user.name", "t", cwd=instance)
@@ -69,6 +79,25 @@ def test_dry_run_is_non_mutating_and_apply_is_allowlisted(tmp_path):
     assert (instance / ".specs" / "STATE.md").read_text(encoding="utf-8") == initialize_template.INITIAL_STATE
     # A ativação do hook faz parte da inicialização: sem ela o clone empurra sem gate.
     assert _git("config", "--get", "core.hooksPath", cwd=instance).stdout.strip() == ".githooks"
+
+
+def test_suite_of_an_instance_with_its_own_decisions_still_proves_the_initializer(tmp_path):
+    """Reprodução do defeito da primeira instância real: o repo de onde a suíte roda
+    já tem uma decisão em `.specs/STATE.md`. A cópia de teste não pode herdar isso,
+    senão `initialize` devolve 1 e a suíte da instância fica vermelha para sempre."""
+    instance_with_decision = tmp_path / "source"
+    shutil.copytree(RAIZ, instance_with_decision, ignore=shutil.ignore_patterns(".git", ".venv", ".pytest_cache", ".ruff_cache", ".tmp", "__pycache__"))
+    state = instance_with_decision / ".specs" / "STATE.md"
+    state.write_text(
+        initialize_template.INITIAL_STATE + "- **AD-001 (2026-09-13):** primeira decisão da instância.\n",
+        encoding="utf-8",
+    )
+
+    copy = _copy_template(tmp_path, source=instance_with_decision)
+    assert (copy / ".specs" / "STATE.md").read_text(encoding="utf-8") == initialize_template.TEMPLATE_STATE
+    assert initialize_template.initialize(copy, dry_run=False) == 0
+    # A decisão da instância de origem fica intocada: a cópia é que foi normalizada.
+    assert "AD-001 (2026-09-13)" in state.read_text(encoding="utf-8")
 
 
 def test_initializer_fails_when_the_hook_cannot_be_activated(tmp_path):

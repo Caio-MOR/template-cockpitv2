@@ -271,6 +271,17 @@ def test_lock_de_dependencias_tem_versoes_e_hashes_exatos():
     assert problemas == [], "\n".join(problemas)
 
 
+def test_lock_pina_o_pip_que_o_pip_audit_exige():
+    """`pip-api` (dependência do `pip-audit`) depende de `pip`; pip-compile sem
+    `--allow-unsafe` deixa `pip` fora e o `uv pip install --require-hashes` do README
+    falha com "found: pip". O lock precisa pinar `pip` com hash como qualquer outro."""
+    texto = REQUIREMENTS.read_text(encoding="utf-8")
+    if not re.search(r"^pip-api==", texto, re.MULTILINE):
+        return
+    assert re.search(r"^pip==[^\s\\]+", texto, re.MULTILINE), "lock sem `pip==`: instalação com --require-hashes falha"
+    assert "not pinned" not in texto, "lock traz o aviso de pacote não pinado do pip-compile"
+
+
 def test_lock_tem_arquivo_de_entradas_diretas():
     """Atualizadores devem editar requisitos diretos e regenerar o lock."""
     assert REQUIREMENTS_IN.exists(), "requirements.in é a fonte de dependências diretas"
