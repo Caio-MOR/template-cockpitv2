@@ -13,7 +13,7 @@ flowchart TD
     T2 --> T3[T3 gate de drift na suíte]
 ```
 
-### T1: `tools/sync_skills.py` com `--check`
+### T1: `tools/sync_skills.py` com `--check` — concluída
 
 Script de stdlib que espelha `.agents/skills/` em `.claude/skills/` e `.grok/skills/`, byte a byte, apagando órfãos no modo escrita e listando divergência no modo `--check`.
 
