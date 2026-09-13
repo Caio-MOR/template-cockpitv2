@@ -167,6 +167,53 @@ def test_fonte_ausente_sai_diferente_de_zero_sem_criar_nada(tmp_path):
     assert not (root / ".grok" / "skills").exists()
 
 
+def test_adotar_move_skill_instalada_no_espelho_para_a_fonte_e_espelha(tmp_path):
+    """Reprodução do defeito da instância: instalador externo deixa só
+    `.claude/skills/X`; `--check` acusa órfão e o modo escrita APAGARIA a skill.
+    `--adotar X` move para a fonte e espelha nos dois destinos."""
+    exemplo = {"_exemplo-skill/SKILL.md": "exemplo\n"}
+    root = _repo_sintetico(tmp_path, exemplo, exemplo, exemplo)
+    _montar(root / ".claude" / "skills", {"tlc/SKILL.md": "tlc\n", "tlc/scripts/lessons.py": "l = 1\n"})
+
+    codigo_antes, linhas_antes = ss.sincronizar(root, check=True)
+    assert codigo_antes != 0 and any("órfão" in linha for linha in linhas_antes), linhas_antes
+
+    codigo, linhas = ss.adotar(root, "tlc")
+
+    assert codigo == 0, linhas
+    assert linhas[0].startswith("adotado\t.claude/skills/tlc -> .agents/skills/tlc")
+    for arvore in (".agents", ".claude", ".grok"):
+        assert (root / arvore / "skills" / "tlc" / "scripts" / "lessons.py").read_text(encoding="utf-8") == "l = 1\n"
+    assert ss.sincronizar(root, check=True)[0] == 0
+
+
+def test_adotar_recusa_skill_ja_na_fonte_ou_inexistente(tmp_path):
+    exemplo = {"_exemplo-skill/SKILL.md": "exemplo\n"}
+    root = _repo_sintetico(tmp_path, exemplo, exemplo, exemplo)
+
+    codigo, linhas = ss.adotar(root, "_exemplo-skill")
+    assert codigo == 1 and "já existe na fonte" in linhas[0], linhas
+
+    codigo, linhas = ss.adotar(root, "nao-existe")
+    assert codigo == 1 and "não encontrada" in linhas[0], linhas
+    assert not (root / ".agents" / "skills" / "nao-existe").exists()
+
+    assert ss.adotar(root, "../fora")[0] == 2
+
+
+def test_cli_adotar_via_subprocesso(tmp_path):
+    exemplo = {"_exemplo-skill/SKILL.md": "exemplo\n"}
+    root = _repo_sintetico(tmp_path, exemplo, exemplo, exemplo)
+    _montar(root / ".grok" / "skills", {"outra/SKILL.md": "outra\n"})
+    resultado = subprocess.run(
+        [sys.executable, str(SCRIPT), "--adotar", "outra", "--root", str(root)],
+        capture_output=True, text=True, encoding="utf-8", timeout=TETO_SUBPROC,
+    )
+    assert resultado.returncode == 0, resultado.stdout + resultado.stderr
+    assert (root / ".agents" / "skills" / "outra" / "SKILL.md").exists()
+    assert (root / ".claude" / "skills" / "outra" / "SKILL.md").exists()
+
+
 def test_cli_check_via_subprocesso():
     """A CLI (`--check`, `--root`) entrega o mesmo contrato da função — não só a
     função testada em processo. Desde a migração da fonte (T2), o repositório

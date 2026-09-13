@@ -106,6 +106,12 @@ Depois, no clone novo, é o **agente** quem executa este checklist ao abrir a pr
    claude plugin install os-audit@caio-mor
    ```
    Conferir com `claude plugin list` e colar a saída na entrega.
+
+   **Skill instalada por ferramenta externa** (ex.: `npx @tech-leads-club/agent-skills install --skill tlc-spec-lean`) cai só em `.claude/skills/<skill>/` (as cópias em `.cursor/` e `.windsurf/` ficam fora do git). A fonte deste repo é `.agents/skills/`, e o gate de espelho (`tests/test_sync_skills.py`) reprova a skill órfã. Logo depois de instalar, rode:
+   ```
+   PY tools/sync_skills.py --adotar <skill>
+   ```
+   Isso move a pasta para `.agents/skills/` e regrava os espelhos `.claude/skills/` e `.grok/skills/`. `PY tools/doctor.py` acusa skill órfã ou espelho faltante e diz o comando.
 7. Primeiro commit em branch + PR: o hook roda os gates no push, o CI de PR repete como rede. Cole a saída dos comandos acima (commit, SO, versão do Python) na entrega; comando ausente ou vermelho não vira "passou".
 
 ## O que o Claude Code bloqueia sozinho neste repo

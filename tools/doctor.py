@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 """Local, dependency-free health check for a cockpit checkout.
 
-The doctor checks six things: the interpreter matches the complete version in
+The doctor checks seven things: the interpreter matches the complete version in
 ``.python-version``, Git is on a named branch, the versioned pre-push hook is
 active (``core.hooksPath`` points at ``.githooks`` and the hook file exists), the
 tracked-file security policy passes, the local environment satisfies the
 names declared by ``.env.example``, and the dependency lock pins every package
 (a ``pip-compile`` lock without ``--allow-unsafe`` leaves ``pip`` unpinned and
-``uv pip install --require-hashes`` refuses it).  It intentionally reports names and error
+``uv pip install --require-hashes`` refuses it), and every skill in the source
+tree ``.agents/skills/`` is mirrored byte for byte in ``.claude/skills/`` and
+``.grok/skills/`` (a skill installed by an external tool lands only in
+``.claude/skills/`` and must be adopted into the source).  It intentionally reports names and error
 codes only; values from ``.env`` and ``os.environ`` never leave this module.
 
 Environment schema convention
@@ -44,10 +47,10 @@ from pathlib import Path
 from typing import Mapping, Sequence
 
 try:  # Works both as ``python -m tools.doctor`` and ``python tools/doctor.py``.
-    from tools import policy_check
+    from tools import policy_check, sync_skills
 except ImportError:  # pragma: no cover - exercised by direct script invocation.
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    from tools import policy_check
+    from tools import policy_check, sync_skills
 
 
 _ENV_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
@@ -92,6 +95,8 @@ FIXES = {
     "hooks_path_not_configured": f"git config core.hooksPath {HOOKS_DIR}",
     "hook_file_missing": f"restaure {PRE_PUSH_HOOK} a partir do repositório (git checkout -- {PRE_PUSH_HOOK})",
     "lock_unpinned_requirement": f"regenere o lock com `{LOCK_COMPILE_COMMAND}`",
+    "skill_only_in_mirror": "skill instalada fora da fonte: `python tools/sync_skills.py --adotar <skill>` move para .agents/skills/ e espelha",
+    "skill_mirror_drift": "`python tools/sync_skills.py` regrava os espelhos a partir de .agents/skills/",
 }
 
 
@@ -224,6 +229,23 @@ def _check_dependencies(root: Path) -> list[DoctorIssue]:
         DoctorIssue("dependencies", "lock_unpinned_requirement", name)
         for name in unpinned_lock_requirements(text)
     ]
+
+
+def _check_skills(root: Path) -> list[DoctorIssue]:
+    """Source ``.agents/skills/`` and its two mirrors must agree file by file.
+
+    ``npx @tech-leads-club/agent-skills install`` (and similar installers) write only
+    ``.claude/skills/<x>/``; the drift gate in the suite (SKL-04) then fails with an
+    orphan, and a plain sync would delete the freshly installed skill.  The doctor
+    names the path and the adoption command instead of leaving it to the gate.
+    """
+    issues: list[DoctorIssue] = []
+    fonte = root / sync_skills.FONTE_REL
+    for destino_rel in sync_skills.DESTINOS_REL:
+        for rel, motivo in sync_skills.comparar(fonte, root / destino_rel):
+            code = "skill_only_in_mirror" if motivo == "órfão" else "skill_mirror_drift"
+            issues.append(DoctorIssue("skills", code, (destino_rel / rel).as_posix()))
+    return issues
 
 
 def _parse_version(text: str) -> tuple[int, int, int] | None:
@@ -397,8 +419,10 @@ def check(
         issues.append(DoctorIssue("security", "policy_unavailable"))
     issues.extend(_check_environment(repo, env_file, environ))
     issues.extend(_check_dependencies(repo))
+    issues.extend(_check_skills(repo))
     return DoctorReport(
-        tuple(issues), ("python", "git", "hooks", "security", "environment", "dependencies")
+        tuple(issues),
+        ("python", "git", "hooks", "security", "environment", "dependencies", "skills"),
     )
 
 

@@ -31,7 +31,7 @@ Categorias com conteúdo variável têm router local (`CLAUDE.md` dentro da past
 | Procurando... | Vá para |
 |---|---|
 | Rotina/automação agendada (SOP, grafo, scripts, logs) | `workflows/` (router lá; `_exemplo-rotina/` é o modelo a copiar) |
-| Skill (instrução sob demanda) | `.agents/skills/` é a **fonte**; `.claude/skills/` e `.grok/skills/` são espelhos gerados por `tools/sync_skills.py` — nunca edite um espelho, o hook nega |
+| Skill (instrução sob demanda) | `.agents/skills/` é a **fonte**; `.claude/skills/` e `.grok/skills/` são espelhos gerados por `tools/sync_skills.py` — nunca edite um espelho, o hook nega. Skill instalada por ferramenta externa (`npx ... install --skill X`) cai só em `.claude/skills/`: rode `python tools/sync_skills.py --adotar X` em seguida; `tools/doctor.py` acusa a órfã |
 | Eval de comportamento de uma skill (prova de que ela dispara/fica quieta) | `evals/_exemplo-skill/` (formato oficial de `claude plugin eval`: `prompt.md` + `graders/`), rodado por `tools/eval_runner.py --skills-dir .agents/skills`; `_exemplo-skill` é o modelo a copiar |
 | Script reutilizável (cliente de API, parser, gate) | `tools/` (router lá) |
 | App web solto (protótipo/utilitário) | `apps/` — uma pasta por app (router lá; nasce vazia — app com usuários e publicação própria vira repositório próprio na organização, e aqui fica só esta linha) |
