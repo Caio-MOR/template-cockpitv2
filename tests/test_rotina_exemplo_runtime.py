@@ -35,7 +35,12 @@ def _events(logs: Path) -> list[dict]:
 
 def test_duplicate_run_is_a_noop_after_success(rotina_fs: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[int] = []
-    monkeypatch.setattr(rotina_exemplo, "processar", lambda attempt: calls.append(attempt) or True)
+
+    def _registrar(attempt: int) -> bool:
+        calls.append(attempt)
+        return True
+
+    monkeypatch.setattr(rotina_exemplo, "processar", _registrar)
     covered = date(2026, 9, 4)
 
     assert rotina_exemplo.main(covered) == 0

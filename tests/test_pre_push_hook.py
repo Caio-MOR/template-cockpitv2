@@ -83,6 +83,13 @@ def repo_com_hook(tmp_path: Path) -> tuple[Path, Path]:
     # O ruff é condicional no hook (roda se existir no interpretador); os scripts falsos
     # não são o que está sob teste, então o lint fica neutro dentro do repo temporário.
     (repo / "ruff.toml").write_text("[lint]\nselect = []\n", encoding="utf-8")
+    # Idem para o mypy: sem pyproject.toml, `py -m mypy` (sem alvo) sai != 0 com
+    # "Missing target module, package, files, or command" — não é o gate falhando,
+    # é ausência de config. Aponta para os próprios scripts falsos (código trivial,
+    # sempre válido) para o type-check ficar neutro aqui também.
+    (repo / "pyproject.toml").write_text(
+        '[tool.mypy]\nfiles = ["tools"]\nignore_missing_imports = true\n', encoding="utf-8",
+    )
     hooks = repo / ".githooks"
     hooks.mkdir()
     shutil.copy(HOOK, hooks / "pre-push")

@@ -1,6 +1,7 @@
 # Dependências diretas de desenvolvimento — o lock requirements.txt é gerado
 # com `uv pip compile --universal --generate-hashes requirements.in`.
 bandit
+mypy>=2,<3
 pip-audit
 pytest>=9,<10
 pyyaml>=6,<7

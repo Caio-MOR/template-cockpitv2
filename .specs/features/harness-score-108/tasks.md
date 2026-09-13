@@ -135,13 +135,13 @@ T7
 
 **Done when**:
 
-- [ ] `pyproject.toml` tem `[tool.mypy]` com `python_version` coerente com `.python-version`, `ignore_missing_imports = true`, `files = ["tools", "tests"]` (ou equivalente), sem `strict`
-- [ ] `mypy` roda na base atual e termina com exit 0, sem `# type: ignore` novo espalhado pelo código (teto de 3 rodadas de ajuste de config; se sobrar erro legítimo, corrigir a anotação, não silenciar)
-- [ ] `.githooks/pre-push` roda o type-check depois do `ruff`, com a MESMA degradação condicional do `ruff` (não instalado = aviso e segue)
-- [ ] `.github/workflows/tests.yml` roda o type-check depois do step de `ruff`, e ali ele é obrigatório
-- [ ] `mypy` foi acrescentado às dependências pinadas. O CI instala com `--require-hashes`: se `pip-compile --generate-hashes` não estiver disponível na máquina, pinar a versão exata no step do CI e REGISTRAR essa limitação em `.specs/features/harness-score-108/tasks.md` como desvio
-- [ ] `tests/test_pre_push_hook.py` (paridade hook × CI) continua verde - se ele enumera os gates, incluir o novo na lista
-- [ ] Gate full passa
+- [x] `pyproject.toml` tem `[tool.mypy]` com `python_version` coerente com `.python-version`, `ignore_missing_imports = true`, `files = ["tools", "tests"]` (ou equivalente), sem `strict`
+- [x] `mypy` roda na base atual e termina com exit 0, sem `# type: ignore` novo espalhado pelo código (teto de 3 rodadas de ajuste de config; se sobrar erro legítimo, corrigir a anotação, não silenciar)
+- [x] `.githooks/pre-push` roda o type-check depois do `ruff`, com a MESMA degradação condicional do `ruff` (não instalado = aviso e segue)
+- [x] `.github/workflows/tests.yml` roda o type-check depois do step de `ruff`, e ali ele é obrigatório
+- [x] `mypy` foi acrescentado às dependências pinadas. O CI instala com `--require-hashes`: se `pip-compile --generate-hashes` não estiver disponível na máquina, pinar a versão exata no step do CI e REGISTRAR essa limitação em `.specs/features/harness-score-108/tasks.md` como desvio
+- [x] `tests/test_pre_push_hook.py` (paridade hook × CI) continua verde - se ele enumera os gates, incluir o novo na lista
+- [x] Gate full passa
 
 **Tests**: integration (o teste de paridade existente cobre a camada; estender, não criar arquivo novo)
 **Gate**: full
@@ -279,4 +279,44 @@ Phase 3:  T7
 
 > Preenchido durante a execução. Todo desvio do plano acima entra aqui com o motivo.
 
-- (nenhum até agora)
+- **T3 — lock gerado com `pip-tools`, não `uv`.** A máquina não tem `uv` instalado
+  (`command not found`). `pip install pip-tools` funcionou de primeira e
+  `python -m piptools compile --generate-hashes --output-file=requirements.txt
+  requirements.in` reproduziu cobertura de hash equivalente à do `uv` (462 → 460
+  linhas de hash antes de acrescentar o mypy; a diferença é ruído de anotação, não
+  de cobertura de plataforma). Testado de ponta a ponta: `pip install
+  --require-hashes -r requirements.txt` num venv novo instala os 39 pacotes sem
+  erro. Um efeito colateral do resolver do pip-tools: `cachecontrol[filecache]`
+  (a extra é real — `pip-audit` a declara — mas `filelock` já entra como entrada
+  própria e pinada, então o sufixo é só anotação) foi normalizado de volta para
+  `cachecontrol==0.14.4` para casar com `test_lock_de_dependencias_tem_versoes_e_
+  hashes_exatos`, que não aceita colchete no nome do pacote.
+- **T3 — `tools/eval_runner.py` excluído do mypy.** É o ESPELHO de uma cópia
+  canônica (`Caio-MOR/plugins`), com gate de SHA-256 pinado
+  (`tests/test_runner_sincronizado.py`) que reprova qualquer edição local feita
+  fora da propagação oficial. As 5 anotações que eu cheguei a acrescentar nele
+  foram revertidas assim que o gate de sincronia acusou; corrigido em
+  `[tool.mypy]` com `exclude = "^tools/eval_runner\\.py$"` e comentário
+  explicando o porquê. Os erros de tipo dele ficam para quem edita a canônica.
+- **T3 — correções de tipo fora do "Where" declarado da task.** Fechar `mypy`
+  com exit 0 exigiu tocar arquivos que a task não listava em "Where"
+  (`tools/lint_routers.py`, `tools/gate_veredito.py`, `tools/operational_audit.py`,
+  `tests/test_lint_routers.py`, `tests/test_criacao_nova.py`,
+  `tests/test_rotina_exemplo_runtime.py`) — o próprio "Done when" da task pede
+  "corrigir a anotação, não silenciar", o que implica editar onde o erro mora.
+  Todas as edições foram cirúrgicas: anotações de tipo (`dict[str, Path] = {}`
+  em vez de `{}`), renomeação de variável de loop reusada com tipo incompatível
+  (`no` → `funcao` em `gate_veredito.py`; `plugin_dir` → `plugin_dir_real` em
+  `eval_runner.py`, revertido junto com o resto do arquivo), um guard de `None`
+  genuíno antes de `.split()` em `operational_audit.py` (import relativo com
+  `module=None`, bug real embora nunca disparado na prática), e a correção de
+  dois tipos declarados errados em `lint_routers.py` (`list[str]` que na
+  verdade sempre foi `list[tuple[str, bool]]`, confirmado pelo próprio uso do
+  valor três linhas abaixo). Nenhum `# type: ignore` foi usado.
+- **T3 — fixture de `tests/test_pre_push_hook.py` ganhou um `pyproject.toml`
+  neutro.** O repositório sintético do teste não tem config de mypy; sem alvo,
+  `python -m mypy` sai com erro ("Missing target module...") mesmo sem nenhum
+  problema de tipo real — não é o gate reprovando, é ausência de config. Segui
+  o mesmo padrão já usado para o `ruff.toml` neutro na mesma fixture: um
+  `pyproject.toml` com `[tool.mypy]` apontando `files = ["tools"]` (a mesma
+  pasta com os scripts falsos triviais que o teste já cria).

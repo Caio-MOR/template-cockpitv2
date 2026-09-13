@@ -9,6 +9,7 @@ repo real poderia ser um lint que não enxerga nada.
 import importlib.util
 import subprocess
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 # Teto de duração de todo subprocesso deste gate. Freio da regra `loop-engineering`:
@@ -18,10 +19,11 @@ TETO_SUBPROC = 120
 RAIZ = Path(__file__).resolve().parents[1]
 LINT_PATH = RAIZ / "tools" / "lint_routers.py"
 spec = importlib.util.spec_from_file_location("lint_routers", LINT_PATH)
+assert spec is not None and spec.loader is not None, "spec do lint_routers.py não resolveu"
 lr = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(lr)
 
-SEM_IGNORE = lambda cands: {}  # noqa: E731 — nada é "fora do git por design"
+SEM_IGNORE: Callable[[list[str]], dict[str, str]] = lambda cands: {}  # noqa: E731 — nada é "fora do git por design"
 
 
 def arvore(tmp_path, arquivos):
