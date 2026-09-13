@@ -58,7 +58,7 @@ Requirements: GAT-02
 Tests: `tests/test_criacao_nova.py` segue enxergando a skill de exemplo com contagem maior que zero; teste provando que `/skill-inexistente` reprova no lint e `/_exemplo-skill` passa, resolvendo contra `.agents/skills/`.
 Gate: `python -m pytest tests/test_criacao_nova.py -q`
 
-### T5: `test_evals_estrutura.py` deixa de falhar em silêncio
+### T5: `test_evals_estrutura.py` deixa de falhar em silêncio — concluída
 
 `SKILLS_DIR` passa a apontar para `.agents/skills` e o arquivo ganha asserção de que descobriu pelo menos uma skill. Hoje `descobrir_skills` devolve dicionário vazio quando o diretório não existe e os quatro testes seguem verdes vendo nada.
 
