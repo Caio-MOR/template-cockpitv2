@@ -2,7 +2,7 @@
 paths:
   - "workflows/**"
   - "tools/**"
-  - ".claude/skills/**"
+  - ".agents/skills/**"
 ---
 
 # Padrão de Logging

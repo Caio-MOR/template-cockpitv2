@@ -5,3 +5,4 @@ Referências duráveis do cockpit: handoffs de frentes encerradas, dossiês, spe
 - `padrao-ouro/PADRAO.md` — a norma do padrão ouro (v1.1): exigências medíveis por tipo de repo (cockpit, app, skills), pesos e fórmula do placar. É o texto que `tools/padrao_ouro_audit.py` implementa; mudar a norma é mudar o auditor no mesmo commit.
 - `OPERATIONS.md` — contrato operacional: runtime, configuração, credenciais, classificação de dados, backup/restore, resposta a incidentes e cadência de manutenção.
 - `THREAT_MODEL.md` — ativos, fronteiras de confiança, ameaças, controles e restrições aceitas desta instância privada.
+- `COBERTURA-VENDOR.md` — o que o harness NÃO entrega a cada agente (hooks de runtime, sub-agente, commands), o motivo e o que seria preciso. Consultar antes de supor que um guardrail vale no agente que você está usando.

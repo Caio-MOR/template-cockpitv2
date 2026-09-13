@@ -119,6 +119,48 @@ def test_pasta_de_workflow_sem_mencao_no_router_vira_erro(tmp_path):
     assert [(a[0], a[2]) for a in achados] == [("workflows/CLAUDE.md", "workflows/rotina-b/")]
 
 
+def test_ref_skill_resolve_contra_agents_skills_nao_claude_skills(tmp_path):
+    """GAT-02: `/nome` resolve contra `.agents/skills/<nome>/SKILL.md`.
+
+    `_exemplo-skill` (prefixo `_`) não casa em `RE_SKILL` por design (primeiro
+    caractere após a barra tem de ser alfanumérico) — nome sintético aqui é o
+    que de fato exercita a resolução. Skill presente só em `.agents/skills/`
+    tem de passar; skill inexistente tem de reprovar. Antes da correção
+    (`.claude/skills/` como alvo) este teste reprovava com os dois achados.
+    """
+    index = arvore(tmp_path, {
+        "CLAUDE.md": "- veja `/skill-real` e `/skill-inexistente`\n",
+        ".agents/skills/skill-real/SKILL.md": "---\nname: skill-real\ndescription: x\n---\n",
+    })
+    achados = lr.lint(tmp_path, index, SEM_IGNORE)
+    assert [(a[0], a[2]) for a in achados] == [("CLAUDE.md", "/skill-inexistente")]
+
+
+def test_nenhum_claude_md_rule_ou_readme_manda_eval_contra_claude_skills():
+    """T6/GAT-04: nenhum `CLAUDE.md`, `.claude/rules/*.md` ou `README.md`
+    versionado ainda manda rodar o eval contra `.claude/skills` — a fonte
+    migrou para `.agents/skills`.
+
+    `AGENTS.md` fica de fora por decisão explícita deste lote: a reescrita
+    completa dele é o T9 (Phase 4), e até lá ele ainda cita o caminho antigo.
+    """
+    indice = subprocess.run(
+        ["git", "ls-files"], cwd=RAIZ, capture_output=True, text=True,
+        encoding="utf-8", check=True, timeout=TETO_SUBPROC,
+    ).stdout.splitlines()
+    alvos = [
+        f for f in indice
+        if f.endswith("CLAUDE.md") or f == "README.md" or f.startswith(".claude/rules/")
+    ]
+    problemas = []
+    for rel in alvos:
+        texto = (RAIZ / rel).read_text(encoding="utf-8")
+        for n, linha in enumerate(texto.splitlines(), start=1):
+            if "eval_runner.py" in linha and "--skills-dir .claude/skills" in linha:
+                problemas.append(f"{rel}:{n}")
+    assert problemas == [], f"ainda manda rodar o eval contra .claude/skills: {problemas}"
+
+
 def test_cli_exit_0_em_repo_limpo_e_1_com_erro(tmp_path):
     repo = _repo_git(tmp_path, {"CLAUDE.md": "- veja `docs/CLAUDE.md`\n", "docs/CLAUDE.md": "ok\n"})
     assert _roda_cli("--root", str(repo)).returncode == 0

@@ -6,7 +6,7 @@ O que valida:
 - Referências path-like (backticks e links markdown) de todo CLAUDE.md
   versionado e, na raiz, de AGENTS.md e README.md (fonte única e porta de
   entrada — drift lá envenena igual).
-- Skills `/nome` contra .claude/skills/<nome>/SKILL.md.
+- Skills `/nome` contra .agents/skills/<nome>/SKILL.md.
 - Cobertura reversa: pasta de 1º nível em workflows/ e script tools/*.py
   precisam aparecer no router da categoria.
 - Contagem declarada ("N scripts") no router de tools.
@@ -420,7 +420,7 @@ def _checar_arquivo(
         if RE_SKILL.match(ref):
             if ref in SKILLS_BUILTIN:
                 continue
-            alvo = f".claude/skills/{ref[1:]}/SKILL.md"
+            alvo = f".agents/skills/{ref[1:]}/SKILL.md"
             if alvo not in index and not _tem_marcacao(linha, ref):
                 achados.append((rel, n, ref, f"skill sem {alvo} no índice git"))
             continue

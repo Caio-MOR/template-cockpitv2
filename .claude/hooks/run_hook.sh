@@ -8,7 +8,7 @@ raiz="${CLAUDE_PROJECT_DIR:-.}"
 dir="$raiz/.claude/hooks"
 
 case "$script" in
-    guarda_bash.py|guarda_segredo.py|precompact_contexto.py|sessionstart_contexto.py|ruff_feedback.py) ;;
+    guarda_bash.py|guarda_segredo.py|guarda_espelho.py|precompact_contexto.py|sessionstart_contexto.py|ruff_feedback.py) ;;
     *)
         echo "run_hook.sh: script de hook não permitido" >&2
         exit 2

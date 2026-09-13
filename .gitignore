@@ -27,8 +27,10 @@
 # Pastas versionadas
 !/.github/
 !/.githooks/
+!/.agents/
 !/.claude/
 !/.codex/
+!/.grok/
 !/tools/
 !/docs/
 !/tests/

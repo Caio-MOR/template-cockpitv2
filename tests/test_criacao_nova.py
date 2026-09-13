@@ -28,7 +28,7 @@ from pathlib import Path
 import pytest
 
 RAIZ = Path(__file__).resolve().parent.parent
-SKILLS = ".claude/skills/"
+SKILLS = ".agents/skills/"
 AGENTES = ".claude/agents/"
 COMMANDS = ".claude/commands/"
 WORKFLOWS = "workflows/"
@@ -682,5 +682,5 @@ def test_git_indisponivel_falha_alto(monkeypatch):
 
 def test_pasta_de_skill_so_com_references_reprova():
     """Pasta com arquivos mas sem SKILL.md é achado da checagem de skills."""
-    indice = frozenset({".claude/skills/orfa/references/x.md", ".claude/skills/ok/SKILL.md"})
+    indice = frozenset({f"{SKILLS}orfa/references/x.md", f"{SKILLS}ok/SKILL.md"})
     assert _pastas_sem_arquivo(indice, SKILLS, "SKILL.md") == ["orfa"]

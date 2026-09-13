@@ -3,7 +3,13 @@
 Roda sem LLM. O template é MODELO, não produção: exige apenas >= 1 positivo e
 >= 1 negativo por skill (o marketplace `caio-mor` exige 3+3 — ver
 `tools/eval_runner.py`/`docs/` de lá). A execução real com `claude -p` é gate
-local (`python tools/eval_runner.py --skills-dir .claude/skills`), nunca CI.
+local (`python tools/eval_runner.py --skills-dir .agents/skills`), nunca CI.
+
+GAT-01: `eval_runner.descobrir_skills` devolve `{}` em silêncio quando o
+diretório não existe ou está vazio — sem sensor, os testes abaixo, que iteram
+`_casos_por_skill()`, seguem verdes vendo zero skills. `test_fonte_de_skills_tem_ao_menos_uma_skill`
+fecha esse buraco na fonte real; `test_sensor_reprova_com_fonte_vazia_ou_ausente_e_passa_com_a_real`
+prova que ele reprova quando a fonte some.
 """
 
 from __future__ import annotations
@@ -12,12 +18,14 @@ import re
 import sys
 from pathlib import Path
 
+import pytest
+
 RAIZ = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(RAIZ / "tools"))
 
 import eval_runner  # noqa: E402
 
-SKILLS_DIR = RAIZ / ".claude" / "skills"
+SKILLS_DIR = RAIZ / ".agents" / "skills"
 EVALS_DIR = RAIZ / "evals"
 
 RE_CAMINHO_MAQUINA = re.compile(
@@ -28,6 +36,17 @@ RE_CAMINHO_MAQUINA = re.compile(
 
 def _skills():
     return eval_runner.descobrir_skills(SKILLS_DIR)
+
+
+def _exige_skills_descobertas(skills_dir: Path) -> None:
+    """Sensor de GAT-01: fonte vazia ou ausente não pode passar em silêncio —
+    `descobrir_skills` devolve `{}` nesses casos e este sensor reprova em vez
+    de deixar os testes que iteram `_casos_por_skill()` verem zero skills."""
+    descobertas = eval_runner.descobrir_skills(skills_dir)
+    assert descobertas, (
+        f"descobrir_skills({skills_dir}) não achou nenhuma skill — a fonte está "
+        "vazia ou ausente, e os testes deste arquivo passariam vendo zero skills"
+    )
 
 
 def _casos_por_skill():
@@ -94,3 +113,29 @@ def test_prompt_sem_caminho_de_maquina():
                 if RE_CAMINHO_MAQUINA.search(linha):
                     problemas.append(f"{case_dir}/prompt.md:{n}: caminho de máquina")
     assert problemas == [], "\n".join(problemas)
+
+
+def test_fonte_de_skills_tem_ao_menos_uma_skill():
+    """GAT-01 — sensor real: se `SKILLS_DIR` vier vazio ou sumir, este teste
+    reprova em vez de deixar os quatro testes acima passarem vendo zero skills."""
+    _exige_skills_descobertas(SKILLS_DIR)
+
+
+def test_sensor_reprova_com_fonte_vazia_ou_ausente_e_passa_com_a_real(tmp_path):
+    """Prova de discriminação (GAT-01): o mesmo sensor de
+    `test_fonte_de_skills_tem_ao_menos_uma_skill`, apontado para um diretório
+    ausente e depois para um vazio, reprova nos dois casos; contra a fonte
+    real (`SKILLS_DIR`), passa. Antes desta task, `descobrir_skills` devolvia
+    `{}` para os dois casos e nenhum teste deste arquivo notava."""
+    ausente = tmp_path / "nao-existe"
+    assert eval_runner.descobrir_skills(ausente) == {}
+    with pytest.raises(AssertionError, match="não achou nenhuma skill"):
+        _exige_skills_descobertas(ausente)
+
+    vazio = tmp_path / "vazio"
+    vazio.mkdir()
+    assert eval_runner.descobrir_skills(vazio) == {}
+    with pytest.raises(AssertionError, match="não achou nenhuma skill"):
+        _exige_skills_descobertas(vazio)
+
+    _exige_skills_descobertas(SKILLS_DIR)  # fonte real: não levanta
