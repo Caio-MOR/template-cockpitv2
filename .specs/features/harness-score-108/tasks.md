@@ -221,14 +221,14 @@ T7
 
 **Done when**:
 
-- [ ] `.githooks/pre-commit` roda `ruff check` só nos arquivos staged e `tools/policy_check.py`, e sai != 0 quando qualquer um reprova
-- [ ] Sem `ruff` instalado: avisa e segue (exit 0) - mesma degradação do `pre-push`
-- [ ] Sem arquivo staged relevante: sai 0 rápido
-- [ ] `.pre-commit-config.yaml` declara um hook `repo: local` que chama `.githooks/pre-commit`, sem repetir a lista de checagens
-- [ ] `.gitignore` ganhou `!/.pre-commit-config.yaml`
-- [ ] `tests/test_pre_commit_hook.py` cobre: existência e bit executável, presença dos dois gates, bloqueio em arquivo sujo, degradação sem `ruff`, e paridade entre o script e o que o `.pre-commit-config.yaml` invoca
-- [ ] O novo arquivo de teste entrou em `conftest.GATES_OBRIGATORIOS` com o mínimo de testes
-- [ ] Gate build passa
+- [x] `.githooks/pre-commit` roda `ruff check` só nos arquivos staged e `tools/policy_check.py`, e sai != 0 quando qualquer um reprova
+- [x] Sem `ruff` instalado: avisa e segue (exit 0) - mesma degradação do `pre-push`
+- [x] Sem arquivo staged relevante: sai 0 rápido
+- [x] `.pre-commit-config.yaml` declara um hook `repo: local` que chama `.githooks/pre-commit`, sem repetir a lista de checagens
+- [x] `.gitignore` ganhou `!/.pre-commit-config.yaml`
+- [x] `tests/test_pre_commit_hook.py` cobre: existência e bit executável, presença dos dois gates, bloqueio em arquivo sujo, degradação sem `ruff`, e paridade entre o script e o que o `.pre-commit-config.yaml` invoca
+- [x] O novo arquivo de teste entrou em `conftest.GATES_OBRIGATORIOS` com o mínimo de testes
+- [x] Gate build passa (mesmo desvio declarado em T4/T5: `test_coleta_medida_e_piso_batem_com_a_coleta_real` fica vermelho até T7 reconciliar `COLETA_MEDIDA`)
 
 **Tests**: integration
 **Gate**: build

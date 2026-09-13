@@ -36,6 +36,7 @@ GATES_OBRIGATORIOS = {
     "tests/test_eval_runner.py": 16,
     "tests/test_runner_sincronizado.py": 5,
     "tests/test_new_instance.py": 2,
+    "tests/test_pre_commit_hook.py": 9,
 }
 
 

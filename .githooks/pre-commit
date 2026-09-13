@@ -1,0 +1,103 @@
+#!/bin/sh
+# pre-commit versionado: recusa o commit se ruff (nos arquivos staged) ou
+# tools/policy_check.py reprovarem.
+# %% formato: cadeia (cada gate roda em sequência; o primeiro que reprova bloqueia)
+#
+# Rodada rápida no commit — a suíte inteira e os demais auditores ficam para o
+# .githooks/pre-push (primeira linha de defesa mais pesada). Aqui só o que dá
+# pra rodar em segundos: lint de estilo do que foi staged e a política de
+# segredo/arquivo de ambiente rastreado.
+#
+# Ativação: `git config core.hooksPath .githooks` (mesma ativação do pre-push;
+# um clone novo faz as duas juntas).
+#
+# Mesma cascata de interpretador e mesmo estilo de saída do pre-push, para que
+# quem já leu um leia o outro sem reaprender nada.
+#
+# Sh POSIX puro: roda no Git Bash do Windows, no Mac e no Linux.
+
+TOPLEVEL=$(git rev-parse --show-toplevel) || exit 1
+cd "$TOPLEVEL" || exit 1
+
+# --- arquivo staged: sem nenhum, não há o que verificar -----------------------------
+ARQUIVOS_STAGED=$(git diff --cached --name-only --diff-filter=ACM) || exit 1
+if [ -z "$ARQUIVOS_STAGED" ]; then
+    exit 0
+fi
+
+# --- interpretador: .venv do repo primeiro; python3 só se funcionar de verdade ------
+# (no Windows, `python3` no PATH pode ser o atalho da Microsoft Store, que não roda).
+# PYFLAG só existe para o launcher `py` do Windows (`py -3.12`); os demais são um
+# caminho único, sempre entre aspas — .venv com espaço no caminho é o caso comum.
+funciona() { "$@" -c "import sys" >/dev/null 2>&1; }
+
+PYFLAG=""
+if [ -n "$COCKPIT_PYTHON" ]; then
+    PYBIN="$COCKPIT_PYTHON"
+elif [ -x "$TOPLEVEL/.venv/Scripts/python.exe" ]; then
+    PYBIN="$TOPLEVEL/.venv/Scripts/python.exe"
+elif [ -x "$TOPLEVEL/.venv/bin/python" ]; then
+    PYBIN="$TOPLEVEL/.venv/bin/python"
+elif funciona python3; then
+    PYBIN="python3"
+elif funciona py -3.12; then
+    PYBIN="py"; PYFLAG="-3.12"
+elif funciona python; then
+    PYBIN="python"
+else
+    echo "[pre-commit] BLOQUEADO: nenhum interpretador Python encontrado (.venv, python3, py -3.12, python)." >&2
+    exit 1
+fi
+py() {
+    if [ -n "$PYFLAG" ]; then "$PYBIN" "$PYFLAG" "$@"; else "$PYBIN" "$@"; fi
+}
+
+# Como invocar o ruff. `PRECOMMIT_RUFF_CMD` é um vão de teste (mesmo espírito de
+# `COCKPIT_PYTHON`): só existe para o teste do próprio hook trocar o ruff por um
+# script falso sem depender do ruff real instalado na máquina; em uso normal a
+# variável não é definida e o ruff roda via `py -m ruff` (módulo, não `ruff.exe`
+# — evita o bloqueio de antivírus do executável direto).
+if [ -n "$PRECOMMIT_RUFF_CMD" ]; then
+    ruff_version() { $PRECOMMIT_RUFF_CMD --version >/dev/null 2>&1; }
+    ruff_check() { $PRECOMMIT_RUFF_CMD check "$@"; }
+else
+    ruff_version() { py -m ruff --version >/dev/null 2>&1; }
+    ruff_check() { py -m ruff check "$@"; }
+fi
+
+# --- gates -------------------------------------------------------------------------
+falhou=""
+gate() {
+    nome="$1"; shift
+    echo "[pre-commit] gate: $nome"
+    if ! "$@"; then
+        falhou="$nome"
+        return 1
+    fi
+}
+
+# ruff só nos .py staged; sem nenhum .py staged, o gate não tem o que rodar.
+ARQUIVOS_PY_STAGED=$(printf '%s\n' "$ARQUIVOS_STAGED" | grep '\.py$') || true
+
+if [ -n "$ARQUIVOS_PY_STAGED" ]; then
+    if ruff_version; then
+        # shellcheck disable=SC2086  # lista de arquivos, um por linha, sem espaço
+        gate "lint de estilo dos arquivos staged (ruff)" ruff_check $ARQUIVOS_PY_STAGED
+    else
+        echo "[pre-commit] AVISO: ruff não está instalado neste interpretador; o lint de estilo fica para o pre-push/CI." >&2
+    fi
+fi
+
+if [ -z "$falhou" ]; then
+    gate "politica de segredos (tools/policy_check.py)" py tools/policy_check.py .
+fi
+
+if [ -n "$falhou" ]; then
+    echo "" >&2
+    echo "[pre-commit] BLOQUEADO pelo gate: $falhou" >&2
+    echo "[pre-commit] Conserte e commite de novo. Pular com --no-verify é decisão registrada, não atalho." >&2
+    exit 1
+fi
+
+echo "[pre-commit] gates verdes; commit liberado"
+exit 0
