@@ -1,0 +1,15 @@
+
+  harness-score v1.6.5  C:\Users\caio.kohn\Documents\projetos\workshop\template-cockpitv2
+
+  Maturity: L4 · Self-correcting   Score: 108/108 (100%)   scopes: repo
+  Detected: Claude Code
+
+  Context & Guides     ████████████████████ 100%  20/20 pts
+  Skills & Commands    ████████████████████ 100%  17/17 pts
+  Hooks & Guardrails   ████████████████████ 100%  14/14 pts
+  Sensors & Feedback   ████████████████████ 100%  20/20 pts
+  CI Feedback          ████████████████████ 100%  14/14 pts
+  Hygiene & Safety     ████████████████████ 100%  23/23 pts
+
+  All checks passed · this repository is fully harnessed.
+

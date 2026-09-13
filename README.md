@@ -108,6 +108,7 @@ As regras acima (segredo só em `.env`, nunca commit direto na `main`) deixaram 
 
 - **`guarda_bash.py`** (todo comando `Bash`): bloqueia `git commit` direto em `main`/`master`, `git push --force`/`-f`/`--force-with-lease`, qualquer `--no-verify` e `git push` com destino explícito `main`/`master`.
 - **`guarda_segredo.py`** (todo `Edit`/`Write`/`MultiEdit`): bloqueia escrita em `.env` e em qualquer variante `.env.algo` (exceto `.env.example`) e conteúdo que casa com padrão de chave/segredo conhecido (AWS, GitHub, chave privada, JWT, Supabase, `x-api-key`).
+- **`ruff_feedback.py`** (`PostToolUse` em todo `Edit`/`Write`/`MultiEdit`): roda `ruff check` no arquivo `.py` editado e devolve o achado ao agente sem bloquear a edição; sem `ruff` instalado, sai em silêncio.
 
 Both hooks fail closed. The interpreter wrapper (`.claude/hooks/run_hook.sh`) selects the repository `.venv` before falling back to system `python3` or `python`. `tests/test_hooks.py` proves the block and pass paths locally; run the full contract on each operating system the owner chooses to support.
 

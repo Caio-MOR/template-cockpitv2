@@ -10,7 +10,7 @@ Implement these tasks with the `tlc-spec-driven` skill: **activate it by name an
 
 **Spec**: `.specs/features/harness-score-108/spec.md`
 **Design**: none - mudanças localizadas, sem decisão arquitetural nova
-**Status**: In Progress
+**Status**: Done
 
 ---
 
@@ -250,13 +250,13 @@ T7
 
 **Done when**:
 
-- [ ] Tabela de estrutura do `AGENTS.md` cita `LICENSE`, `.mcp.json` e `.pre-commit-config.yaml` na linha de configuração
-- [ ] README descreve o hook de feedback `PostToolUse` junto dos dois `PreToolUse` já documentados
-- [ ] `conftest.COLETA_MEDIDA` bate a coleta real depois dos testes novos (`python -m pytest --collect-only -q | tail -1`)
-- [ ] `.specs/STATE.md` ganhou `AD-002` datado, com o que foi decidido, o porquê e a ressalva dos checks que o scanner não sabe medir
-- [ ] `npx harness-score` reporta 108/108 e 36 checks aprovados; saída salva em `.specs/features/harness-score-108/harness-score-depois.txt`
-- [ ] Gate build passa
-- [ ] `git status --short` limpo ao fim (tudo commitado)
+- [x] Tabela de estrutura do `AGENTS.md` cita `LICENSE`, `.mcp.json` e `.pre-commit-config.yaml` na linha de configuração
+- [x] README descreve o hook de feedback `PostToolUse` junto dos dois `PreToolUse` já documentados
+- [x] `conftest.COLETA_MEDIDA` bate a coleta real depois dos testes novos (`python -m pytest --collect-only -q | tail -1`)
+- [x] `.specs/STATE.md` ganhou `AD-002` datado, com o que foi decidido, o porquê e a ressalva dos checks que o scanner não sabe medir
+- [x] `npx harness-score` reporta 108/108 e 36 checks aprovados; saída salva em `.specs/features/harness-score-108/harness-score-depois.txt`
+- [x] Gate build passa
+- [x] `git status --short` limpo ao fim (tudo commitado)
 
 **Tests**: none (docs/config - gate only)
 **Gate**: build
@@ -320,3 +320,24 @@ Phase 3:  T7
   o mesmo padrão já usado para o `ruff.toml` neutro na mesma fixture: um
   `pyproject.toml` com `[tool.mypy]` apontando `files = ["tools"]` (a mesma
   pasta com os scripts falsos triviais que o teste já cria).
+- **T7 — `PISO_COLETA` subiu de 120 para 133, e `tools/initialize_template.py`
+  ganhou o `TEMPLATE_STATE` sincronizado com o `AD-002`.** Não é escopo pedido
+  no "Where" da task, mas é consequência direta dela e o gate build exige
+  0 failed. `test_coleta_medida_e_piso_batem_com_a_coleta_real` cobra
+  `PISO_COLETA == coleta_real // 2`; com a coleta real em 267 (era 241 antes da
+  Fase 2), o piso correto é 133 — não é baixar o piso, é subir a metade junto
+  com a coleta, exatamente o que o teste força. Separadamente, `_copy_template`
+  em `tests/test_new_instance.py` clona o `.specs/STATE.md` real do repo e
+  `initialize_template.initialize()` só aceita sobrescrever um `STATE.md` que
+  bata, byte a byte (após normalizar CRLF→LF), com a constante `TEMPLATE_STATE`
+  hardcoded no próprio `tools/initialize_template.py` (que já continha o texto
+  do `AD-001`, palavra por palavra). Acrescentar o `AD-002` ao `STATE.md` sem
+  atualizar essa constante quebra dois testes
+  (`test_dry_run_is_non_mutating_and_apply_is_allowlisted`,
+  `test_validator_rejects_build_records_and_placeholders_but_allows_later_files`)
+  porque o inicializador passa a recusar o clone do template como "STATE que
+  não é de template". Corrigido substituindo o literal `TEMPLATE_STATE` pelo
+  conteúdo atual do `.specs/STATE.md` (script Python, não digitação manual, para
+  não corromper acentuação); nenhuma lógica do inicializador mudou, só o
+  baseline que ele reconhece como "template limpo com o histórico de decisões
+  até agora".
