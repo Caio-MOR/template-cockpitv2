@@ -79,3 +79,6 @@ jobs:
 
       - name: Lint de estilo (ruff)
         run: python -m ruff check .
+
+      - name: Type-check (mypy)
+        run: python -m mypy

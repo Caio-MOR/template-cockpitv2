@@ -294,8 +294,10 @@ def _vendor_neutral(repo: Repo) -> list[Finding]:
         stdlib = getattr(sys, "stdlib_module_names", frozenset()) | {"__future__"}
         third_party = []
         for node in imports:
+            if isinstance(node, ast.ImportFrom) and node.level:
+                continue  # import relativo (`from . import x`): nunca third-party
             module = node.module if isinstance(node, ast.ImportFrom) else node.names[0].name
-            if module.split(".")[0] not in stdlib and not (isinstance(node, ast.ImportFrom) and node.level):
+            if module and module.split(".")[0] not in stdlib:
                 third_party.append(node)
         if third_party:
             findings += _finding(check, path, "policy gate imports a provider or third-party runtime")
@@ -418,7 +420,7 @@ def _remote_checks() -> tuple[RemoteCheck, ...]:
     )
 
 
-def audit(root: str | Path) -> AuditResult:
+def audit(root: str | Path | Repo) -> AuditResult:
     """Return the ten-category local result without network calls."""
 
     repo = snapshot(root) if not isinstance(root, Repo) else root

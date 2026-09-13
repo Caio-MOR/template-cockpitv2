@@ -11,6 +11,7 @@
 !/.gitattributes
 !/CLAUDE.md
 !/AGENTS.md
+!/LICENSE
 !/README.md
 !/SECURITY.md
 !/requirements.txt
@@ -20,6 +21,8 @@
 !/.python-version
 !/.env.example
 !/pyproject.toml
+!/.mcp.json
+!/.pre-commit-config.yaml
 
 # Pastas versionadas
 !/.github/

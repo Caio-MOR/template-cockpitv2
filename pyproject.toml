@@ -11,6 +11,26 @@ line-length = 100
 # depender do que a versão instalada considera "default" por baixo do capô.
 select = ["E4", "E7", "E9", "F", "I"]
 
+[tool.mypy]
+# Não-estrito de propósito (harness-score-108/spec.md, "Rigor inicial do mypy"): o
+# gate precisa nascer verde para virar rede; `strict = true` de largada reprovaria
+# código legado e viraria `# type: ignore` em massa. Aperto é decisão futura.
+python_version = "3.12"
+ignore_missing_imports = true
+files = ["tools", "tests"]
+# Nem tools/ nem tests/ tem __init__.py (pacote implícito/namespace); os testes
+# importam como `from tools import policy_check`, então o mesmo arquivo aparece
+# tanto como módulo de topo (`tools/policy_check.py` escaneado direto por `files`)
+# quanto como `tools.policy_check` (via import). Sem isto o mypy recusa com
+# "Source file found twice under different module names".
+explicit_package_bases = true
+# tools/eval_runner.py é o ESPELHO de uma cópia canônica (Caio-MOR/plugins); o
+# próprio arquivo documenta que editá-lo aqui sem propagar reprova o gate de
+# sincronia (tests/test_runner_sincronizado.py, SHA pinado). Corrigir os erros de
+# tipo dele é tarefa da canônica, não deste repo — excluído do type-check até a
+# propagação acontecer lá.
+exclude = "^tools/eval_runner\\.py$"
+
 [tool.ruff.lint.per-file-ignores]
 # E741 (nome de variável ambíguo `l`) em arquivos que a tarefa de introduzir o
 # ruff está proibida de tocar (gates congelados) — ver AGENTS.md/lista de

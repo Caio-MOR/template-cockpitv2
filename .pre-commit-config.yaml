@@ -1,0 +1,12 @@
+# Config para quem adota a ferramenta `pre-commit` (o Python, não o git hook).
+# Não repete a lista de checagens: o hook `repo: local` só invoca o mesmo script
+# que já roda via `git config core.hooksPath .githooks` (.githooks/pre-commit).
+# Fonte única das checagens é o próprio script; mexer nelas é editar lá, não aqui.
+repos:
+  - repo: local
+    hooks:
+      - id: cockpit-pre-commit
+        name: Cockpit pre-commit (ruff staged + policy_check)
+        entry: .githooks/pre-commit
+        language: script
+        pass_filenames: false

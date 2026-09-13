@@ -56,10 +56,10 @@ RE_TETO = re.compile(r"\bteto\b", re.IGNORECASE)
 # ---------------------------------------------------------------------------
 # Listas de isenção. Vazias no template; só encolhem (ver os testes de isenção morta).
 # Ao declarar o formato de um artefato isento, tirar o nome daqui no mesmo commit.
-LEGADO_SEM_FORMATO_SKILLS = frozenset()
-LEGADO_SEM_FORMATO_WORKFLOWS = frozenset()
-LEGADO_NOME = frozenset()
-LEGADO_SEM_EVALS_SKILLS = frozenset()
+LEGADO_SEM_FORMATO_SKILLS: frozenset[str] = frozenset()
+LEGADO_SEM_FORMATO_WORKFLOWS: frozenset[str] = frozenset()
+LEGADO_NOME: frozenset[str] = frozenset()
+LEGADO_SEM_EVALS_SKILLS: frozenset[str] = frozenset()
 
 
 # ---------------------------------------------------------------------------
@@ -95,7 +95,7 @@ def _frontmatter(texto: str):
     linhas = texto.splitlines()
     if not linhas or linhas[0].strip() != "---":
         return None
-    chaves = {}
+    chaves: dict[str, str] = {}
     for i, linha in enumerate(linhas[1:], start=1):
         if linha.strip() == "---":
             return chaves

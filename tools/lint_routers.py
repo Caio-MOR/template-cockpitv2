@@ -401,14 +401,14 @@ def _candidatos_ignore(ref: str, base_rel: str) -> list[tuple[str, bool]]:
 
 def _checar_arquivo(
     rel: str, texto: str, index: set[str]
-) -> tuple[list[Achado], list[tuple[Achado, list[str]]]]:
+) -> tuple[list[Achado], list[tuple[Achado, list[tuple[str, bool]]]]]:
     """Achados diretos + pendentes de conferência no gitignore.
 
     Pendentes: (achado, candidatos) — só viram ERRO se nenhum candidato for
     ignorado pelo gitignore (decidido em lote pelo chamador).
     """
     achados: list[Achado] = []
-    pendentes: list[tuple[Achado, list[str]]] = []
+    pendentes: list[tuple[Achado, list[tuple[str, bool]]]] = []
     base_rel = str(Path(rel).parent)
     if base_rel == ".":
         base_rel = ""
@@ -567,7 +567,7 @@ def lint(root: Path, index: set[str], ignorados,
          dirs_historicos: set[str] | None = None) -> list[Achado]:
     """Núcleo puro: `ignorados(candidatos) -> set` decide o 'fora do git por design'."""
     achados: list[Achado] = []
-    pendentes: list[tuple[Achado, list[str]]] = []
+    pendentes: list[tuple[Achado, list[tuple[str, bool]]]] = []
 
     # .claude-memory/ fica fora: um .md de memória que case com *CLAUDE.md é memória,
     # nunca router.

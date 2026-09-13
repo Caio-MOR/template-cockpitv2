@@ -21,6 +21,7 @@ import json
 import re
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -36,7 +37,9 @@ def _sh() -> str:
     return "sh" if shutil.which("sh") else "bash"
 
 
-def _rodar_hook(hook: str, payload: dict, cwd: Path | None = None) -> subprocess.CompletedProcess:
+def _rodar_hook(
+    hook: str, payload: dict, cwd: Path | None = None, env_extra: dict | None = None,
+) -> subprocess.CompletedProcess:
     return subprocess.run(
         [_sh(), str(RUN_HOOK), hook],
         input=json.dumps(payload),
@@ -46,7 +49,7 @@ def _rodar_hook(hook: str, payload: dict, cwd: Path | None = None) -> subprocess
         errors="replace",
         timeout=TETO,
         cwd=str(cwd) if cwd else None,
-        env={**__import__("os").environ, "CLAUDE_PROJECT_DIR": str(RAIZ)},
+        env={**__import__("os").environ, "CLAUDE_PROJECT_DIR": str(RAIZ), **(env_extra or {})},
     )
 
 
@@ -323,6 +326,29 @@ def test_run_hook_rejeita_script_fora_da_allowlist():
         env={**__import__("os").environ, "CLAUDE_PROJECT_DIR": str(RAIZ)},
     )
     assert r.returncode == 2, r.stdout + r.stderr
+    assert "script de hook não permitido" in r.stderr
+
+
+def test_run_hook_rejeita_script_existente_fora_da_allowlist(tmp_path: Path):
+    """Discrimina de verdade: usa um script que EXISTE no diretório de hooks mas não
+    está na allowlist. Os dois testes acima usam nomes que também não existem como
+    arquivo (`../outro.py`, `script_inexistente.py`) — se a allowlist do
+    `run_hook.sh` for removida, o Python tenta rodar um caminho inexistente e sai
+    com o MESMO código 2 por acidente, e o teste continuaria verde. Aqui, se a
+    allowlist sumir, o script existe e RODARIA com sucesso (exit 0) em vez de ser
+    recusado — por isso a cópia isolada em `tmp_path`, para não poluir
+    `.claude/hooks/` do repo com um arquivo de teste."""
+    hooks_copia = tmp_path / ".claude" / "hooks"
+    shutil.copytree(HOOKS, hooks_copia)
+    extra = hooks_copia / "extra_nao_permitido.py"
+    extra.write_text("print('nao deveria rodar')\n", encoding="utf-8")
+    r = subprocess.run(
+        [_sh(), str(hooks_copia / "run_hook.sh"), "extra_nao_permitido.py"], input="{}",
+        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=TETO,
+        env={**__import__("os").environ, "CLAUDE_PROJECT_DIR": str(tmp_path)},
+    )
+    assert r.returncode == 2, r.stdout + r.stderr
+    assert "script de hook não permitido" in r.stderr
 
 
 # ---------------------------------------------------------------------------
@@ -387,3 +413,203 @@ def test_hooks_pretooluse_com_matcher_bash_e_edit_write_multiedit_presentes():
     matchers = {bloco.get("matcher") for bloco in hooks}
     assert "Bash" in matchers, matchers
     assert any("Edit" in (m or "") and "Write" in (m or "") for m in matchers), matchers
+
+
+# ---------------------------------------------------------------------------
+# T4 — PreCompact/SessionStart saem de string inline e viram script versionado
+
+
+TEXTO_PRECOMPACT = (
+    '{"hookSpecificOutput":{"hookEventName":"PreCompact","additionalContext":'
+    '"Instrucao obrigatoria para o resumo de compactacao: preserve integralmente '
+    '(1) a lista de arquivos modificados na sessao, (2) as decisoes-chave tomadas '
+    'e (3) os comandos de verificacao/teste ainda em aberto."}}'
+)
+
+TEXTO_SESSIONSTART_COMPACT = (
+    "Contexto recem-compactado. Antes de prosseguir, confirme que o resumo "
+    "preservou: (1) arquivos modificados na sessao, (2) decisoes-chave tomadas, "
+    "(3) comandos de verificacao/teste em aberto. Se algo se perdeu, recupere via "
+    "git status, .specs/STATE.md ou logs do workflow antes de continuar."
+)
+
+
+def test_precompact_contexto_emite_o_texto_exato():
+    r = _rodar_hook("precompact_contexto.py", {})
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert r.stdout.rstrip("\n") == TEXTO_PRECOMPACT
+
+
+def test_sessionstart_contexto_emite_o_texto_exato():
+    r = _rodar_hook("sessionstart_contexto.py", {})
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert r.stdout.rstrip("\n") == TEXTO_SESSIONSTART_COMPACT
+
+
+def test_run_hook_aceita_precompact_contexto_na_allowlist():
+    r = subprocess.run(
+        [_sh(), str(RUN_HOOK), "precompact_contexto.py"], input="{}",
+        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=TETO,
+        env={**__import__("os").environ, "CLAUDE_PROJECT_DIR": str(RAIZ)},
+    )
+    assert r.returncode == 0, r.stdout + r.stderr
+
+
+def test_run_hook_aceita_sessionstart_contexto_na_allowlist():
+    r = subprocess.run(
+        [_sh(), str(RUN_HOOK), "sessionstart_contexto.py"], input="{}",
+        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=TETO,
+        env={**__import__("os").environ, "CLAUDE_PROJECT_DIR": str(RAIZ)},
+    )
+    assert r.returncode == 0, r.stdout + r.stderr
+
+
+def test_run_hook_continua_recusando_nome_desconhecido():
+    r = subprocess.run(
+        [_sh(), str(RUN_HOOK), "script_inexistente.py"], input="{}",
+        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=TETO,
+        env={**__import__("os").environ, "CLAUDE_PROJECT_DIR": str(RAIZ)},
+    )
+    assert r.returncode == 2, r.stdout + r.stderr
+    assert "script de hook não permitido" in r.stderr
+
+
+def test_settings_precompact_e_sessionstart_sem_json_inline():
+    """Nenhum dos dois eventos volta a ter o texto embutido direto no `command` —
+    ambos chamam `run_hook.sh` com o nome do script versionado."""
+    precompact = _settings()["hooks"]["PreCompact"][0]["hooks"][0]["command"]
+    sessionstart = _settings()["hooks"]["SessionStart"][0]["hooks"][0]["command"]
+    for comando, script in (
+        (precompact, "precompact_contexto.py"),
+        (sessionstart, "sessionstart_contexto.py"),
+    ):
+        assert not comando.strip().startswith("echo"), comando
+        assert "run_hook.sh" in comando and script in comando, comando
+
+
+# ---------------------------------------------------------------------------
+# T5 — ruff_feedback.py (PostToolUse): devolve achado do ruff sem bloquear
+
+
+FAKE_RUFF = RAIZ / "tests" / "fixtures" / "fake_ruff.py"
+
+
+def _env_fake_ruff(modo: str, timeout: str | None = None) -> dict:
+    env = {
+        "RUFF_FEEDBACK_CMD": f'"{sys.executable}" "{FAKE_RUFF}"',
+        "FAKE_RUFF_MODE": modo,
+    }
+    if timeout is not None:
+        env["RUFF_FEEDBACK_TIMEOUT_SEC"] = timeout
+    return env
+
+
+def test_ruff_feedback_devolve_achado_sem_bloquear():
+    r = _rodar_hook(
+        "ruff_feedback.py",
+        {"tool_input": {"file_path": "conftest.py"}},
+        env_extra=_env_fake_ruff("achado"),
+    )
+    assert r.returncode == 0, r.stdout + r.stderr
+    saida = json.loads(r.stdout)
+    contexto = saida["hookSpecificOutput"]["additionalContext"]
+    assert "E501" in contexto
+    assert saida["hookSpecificOutput"]["hookEventName"] == "PostToolUse"
+
+
+def test_ruff_feedback_arquivo_limpo_sai_zero_sem_saida():
+    r = _rodar_hook(
+        "ruff_feedback.py",
+        {"tool_input": {"file_path": "conftest.py"}},
+        env_extra=_env_fake_ruff("limpo"),
+    )
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert r.stdout.strip() == ""
+
+
+def test_ruff_feedback_ruff_ausente_degrada_em_silencio():
+    r = _rodar_hook(
+        "ruff_feedback.py",
+        {"tool_input": {"file_path": "conftest.py"}},
+        env_extra={"RUFF_FEEDBACK_CMD": "ruff_binario_que_nao_existe_xyz"},
+    )
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert r.stdout.strip() == ""
+
+
+def test_ruff_feedback_timeout_degrada_em_silencio():
+    r = _rodar_hook(
+        "ruff_feedback.py",
+        {"tool_input": {"file_path": "conftest.py"}},
+        env_extra=_env_fake_ruff("timeout", timeout="0.3"),
+    )
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert r.stdout.strip() == ""
+
+
+def test_ruff_feedback_erro_sem_stdout_nao_emite_nada():
+    r = _rodar_hook(
+        "ruff_feedback.py",
+        {"tool_input": {"file_path": "conftest.py"}},
+        env_extra=_env_fake_ruff("erro_sem_stdout"),
+    )
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert r.stdout.strip() == ""
+
+
+def test_ruff_feedback_json_invalido_no_stdin_degrada_em_silencio():
+    r = subprocess.run(
+        [_sh(), str(RUN_HOOK), "ruff_feedback.py"], input="isto nao e json",
+        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=TETO,
+        env={**__import__("os").environ, "CLAUDE_PROJECT_DIR": str(RAIZ), **_env_fake_ruff("achado")},
+    )
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert r.stdout.strip() == ""
+
+
+def test_ruff_feedback_file_path_ausente_degrada_em_silencio():
+    r = _rodar_hook(
+        "ruff_feedback.py",
+        {"tool_input": {}},
+        env_extra=_env_fake_ruff("achado"),
+    )
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert r.stdout.strip() == ""
+
+
+def test_ruff_feedback_arquivo_fora_do_projeto_degrada_em_silencio(tmp_path: Path):
+    alheio = tmp_path / "fora.py"
+    alheio.write_text("x = 1\n", encoding="utf-8")
+    r = _rodar_hook(
+        "ruff_feedback.py",
+        {"tool_input": {"file_path": str(alheio)}},
+        env_extra=_env_fake_ruff("achado"),
+    )
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert r.stdout.strip() == ""
+
+
+def test_ruff_feedback_ignora_arquivo_nao_py():
+    r = _rodar_hook(
+        "ruff_feedback.py",
+        {"tool_input": {"file_path": "README.md"}},
+        env_extra=_env_fake_ruff("achado"),
+    )
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert r.stdout.strip() == ""
+
+
+def test_run_hook_aceita_ruff_feedback_na_allowlist():
+    r = _rodar_hook("ruff_feedback.py", {"tool_input": {}})
+    assert r.returncode == 0, r.stdout + r.stderr
+
+
+def test_settings_registra_posttooluse_com_matcher_edit_write_multiedit():
+    hooks = _settings().get("hooks", {}).get("PostToolUse", [])
+    assert hooks, "settings.json sem hooks PostToolUse"
+    matchers = {bloco.get("matcher") for bloco in hooks}
+    assert any("Edit" in (m or "") and "Write" in (m or "") for m in matchers), matchers
+    for bloco in hooks:
+        for h in bloco.get("hooks", []):
+            assert h.get("type") == "command", h
+            assert "run_hook.sh" in h.get("command", ""), h

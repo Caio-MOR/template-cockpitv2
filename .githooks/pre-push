@@ -97,6 +97,14 @@ if [ -z "$falhou" ]; then
 fi
 
 if [ -z "$falhou" ]; then
+    if py -m mypy --version >/dev/null 2>&1; then
+        gate "type-check (mypy)" py -m mypy
+    else
+        echo "[pre-push] AVISO: mypy não está instalado neste interpretador; o type-check fica para o CI de PR." >&2
+    fi
+fi
+
+if [ -z "$falhou" ]; then
     if command -v gitleaks >/dev/null 2>&1; then
         gate "varredura de segredos (gitleaks)" gitleaks detect --source . --no-banner --redact
     else

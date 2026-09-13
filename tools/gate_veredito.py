@@ -231,13 +231,13 @@ def corpos_esvaziados(fonte: str, arquivo: str) -> list[str]:
         if _e_chamada_de_skip(no):
             achados.append(f"{arquivo}: skip no nível do módulo (linha {no.lineno})")
 
-    for no in ast.walk(arvore):
-        if not isinstance(no, (ast.FunctionDef, ast.AsyncFunctionDef)):
+    for funcao in ast.walk(arvore):
+        if not isinstance(funcao, (ast.FunctionDef, ast.AsyncFunctionDef)):
             continue
-        if not no.name.startswith("test_"):
+        if not funcao.name.startswith("test_"):
             continue
-        corpo = _sem_docstring(no.body)
-        onde = f"{arquivo}::{no.name} (linha {no.lineno})"
+        corpo = _sem_docstring(funcao.body)
+        onde = f"{arquivo}::{funcao.name} (linha {funcao.lineno})"
         if not corpo:
             achados.append(f"{onde}: corpo vazio")
             continue
