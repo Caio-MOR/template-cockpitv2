@@ -40,6 +40,9 @@ FAKE_RUFF = (
     "modo = os.environ.get('FAKE_RUFF_MODE', 'limpo')\n"
     "if sys.argv[1:2] == ['--version']:\n"
     "    sys.exit(0)\n"
+    "registro = os.environ.get('FAKE_RUFF_ARGV')\n"
+    "if registro:\n"
+    "    open(registro, 'w', encoding='utf-8').write('\\n'.join(sys.argv[1:]))\n"
     "if modo == 'achado':\n"
     "    print('x.py:1:1: E501 linha longa demais')\n"
     "    sys.exit(1)\n"
@@ -183,6 +186,54 @@ def test_degrada_sem_ruff_instalado_e_segue_para_policy_check(repo_com_hook: Pat
     assert "AVISO" in saida
     assert "gate: politica de segredos" in saida
     assert "gates verdes" in saida
+
+
+def test_hook_passa_force_exclude_para_o_ruff(repo_com_hook: Path, tmp_path: Path):
+    """Com lista explícita de arquivos o ruff ignora `extend-exclude` do pyproject;
+    `--force-exclude` é o que faz skill vendorizada (`.claude/skills/...`) não
+    bloquear o commit. O fake registra o argv que o hook lhe passou."""
+    registro = tmp_path / "argv.txt"
+    env = _env(
+        PRECOMMIT_RUFF_CMD=f"{sys.executable} fake_ruff.py", FAKE_RUFF_MODE="limpo",
+        FAKE_RUFF_ARGV=str(registro),
+    )
+    r = _commit_arquivo_py(repo_com_hook, "ok3.py", "x = 1\n", env)
+    assert r.returncode == 0, r.stdout + r.stderr
+    argv = registro.read_text(encoding="utf-8").splitlines()
+    assert argv[0] == "check"
+    assert "--force-exclude" in argv, argv
+    assert argv.index("--force-exclude") < argv.index("ok3.py")
+
+
+def test_ruff_real_com_force_exclude_pula_skill_vendorizada(tmp_path: Path):
+    """Reprodução do bloqueio real: `lessons.py` de uma skill instalada (8x E741) com
+    o pyproject do repo. Sem `--force-exclude` o arquivo explícito reprova; com a flag,
+    o `extend-exclude` das três pastas de skill vale e o ruff sai 0."""
+    import shutil
+
+    lab = tmp_path / "lab"
+    lab.mkdir()
+    shutil.copy(RAIZ / "pyproject.toml", lab / "pyproject.toml")
+    for pasta in (".claude/skills", ".agents/skills", ".grok/skills"):
+        alvo = lab / pasta / "tlc-spec-lean" / "scripts" / "lessons.py"
+        alvo.parent.mkdir(parents=True)
+        alvo.write_text("l = 1\nprint(l)\n", encoding="utf-8")
+    (lab / "nosso.py").write_text("l = 1\n", encoding="utf-8")
+    skill = ".claude/skills/tlc-spec-lean/scripts/lessons.py"
+
+    def ruff(*args: str) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            [sys.executable, "-m", "ruff", "check", *args], cwd=str(lab),
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=TETO, check=False,
+        )
+
+    sem_flag = ruff(skill)
+    assert sem_flag.returncode != 0 and "E741" in sem_flag.stdout, "sem a flag o achado da skill tem que aparecer (é o defeito)"
+    com_flag = ruff("--force-exclude", skill, ".agents/skills/tlc-spec-lean/scripts/lessons.py", ".grok/skills/tlc-spec-lean/scripts/lessons.py")
+    assert com_flag.returncode == 0, com_flag.stdout + com_flag.stderr
+    # A exclusão não anestesia o resto: arquivo nosso com o mesmo achado continua reprovando.
+    nosso = ruff("--force-exclude", "nosso.py")
+    assert nosso.returncode != 0 and "E741" in nosso.stdout
 
 
 def test_sem_arquivo_staged_sai_zero_rapido(repo_com_hook: Path):
