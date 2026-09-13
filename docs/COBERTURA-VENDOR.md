@@ -9,7 +9,7 @@ A regra que organiza tudo abaixo: **guardrail contornado é pior que guardrail a
 | Peça | Como chega em cada agente |
 |---|---|
 | Instruções (`AGENTS.md`) | nativo em Codex, Cursor e Grok Build; por `@AGENTS.md` no `CLAUDE.md` para o Claude Code |
-| Skills | fonte em `.agents/skills/` (lida nativamente pelo Codex), espelhada por `tools/sync_skills.py` em `.claude/skills/` e `.grok/skills/` |
+| Skills | fonte em `.agents/skills/`, lida nativamente pelo Codex **e pelo Cursor** (que carrega `.agents/skills/`, o diretório do padrão aberto, desde a versão 2.4); espelhada por `tools/sync_skills.py` em `.claude/skills/` e `.grok/skills/` para os outros dois |
 | Gates de teste e lint | `.githooks/pre-commit`, `.githooks/pre-push` e `.github/workflows/` — git e CI não sabem qual agente escreveu o código, então valem para todos |
 
 ## O que não é portável, e por quê
@@ -31,6 +31,8 @@ O sub-agente `verificador` e os commands `gates` e `verificar` são formato do C
 **O que seria preciso:** converter os dois commands em skills — o caminho que a própria Anthropic tomou ao fundir commands em skills — e assim eles passam a chegar aos três agentes pelo mesmo espelho das skills. O sub-agente exigiria uma definição por vendor.
 
 **Por que não foi feito:** conversão de command em skill é mudança de contrato de uso (nome, invocação, evals próprios), não renomeação de arquivo. Vira trabalho próprio, com spec.
+
+Escolher `.agents/skills/` como fonte, e não `.claude/skills/`, foi o que tornou isso possível: é o caminho do padrão aberto, e dois dos quatro agentes o leem sem espelho nenhum.
 
 ### Regras (`.claude/rules/`)
 

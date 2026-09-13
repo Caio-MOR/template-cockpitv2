@@ -11,7 +11,7 @@ O que cada agente carrega sozinho. O que ele não carrega, você alcança pelo c
 | Peça | Claude Code | Codex | Cursor | Grok Build |
 |---|---|---|---|---|
 | Este arquivo | por `CLAUDE.md` | nativo | nativo | nativo |
-| Skills (fonte em `.agents/skills/`) | pelo espelho `.claude/skills/` | nativo | não carrega | pelo espelho `.grok/skills/` |
+| Skills (fonte em `.agents/skills/`) | pelo espelho `.claude/skills/` | nativo | nativo | pelo espelho `.grok/skills/` |
 | Regras de `.claude/rules/` | carregadas na abertura | não carrega | não carrega | carregadas |
 | Sub-agente `.claude/agents/verificador.md` e commands `.claude/commands/` | sim | não carrega | não carrega | não carrega |
 | Hooks de `.claude/settings.json` (enforcement em runtime) | sim | não carrega | não carrega | não carrega |
