@@ -68,3 +68,22 @@ Contexto: `docs/COBERTURA-VENDOR.md` (T11, "o que cada vendor não recebe") cita
 ## Veredito AC-7
 
 **AC-7 NÃO passou integralmente.** A primeira metade do critério (os três alvos — `SECURITY.md`, as 6 rules e a skill — entrarem na superfície) **passou**. A segunda metade (0 findings BROKEN) **não passou**: a trilha A encontrou 1 finding BROKEN no run `2026-09-13-depois` (`docs/COBERTURA-VENDOR.md` citando `.cursor/hooks.json`), contra 0 no run antigo. O requisito ROT-02 exige as duas condições juntas ("...com 0 findings BROKEN"), então o critério fica pendente até a citação em `docs/COBERTURA-VENDOR.md` ser ajustada (ex.: deixar claro que é um exemplo de schema de outro vendor, não um caminho deste repo) e a trilha A rodar de novo limpa.
+
+## Rodada final (2026-09-13-final), depois de corrigir o BROKEN
+
+O BROKEN do run `2026-09-13-depois` era texto deste trabalho, nao do repo: `docs/COBERTURA-VENDOR.md` citava entre crases caminhos de hook de outro vendor (`.cursor/hooks.json`, `.codex/agents/`), que nao existem aqui. A regua le crase como afirmacao de que o arquivo existe neste repositorio, e ela esta certa: um agente que segue a citacao nao acha nada. O texto passou a nomear esses arquivos em prosa, dizendo explicitamente que nao existem aqui.
+
+Run final, mesmos dois comandos com `--run-id 2026-09-13-final`:
+
+| Metrica | Antes (trilha A, 13/09) | Final |
+|---|---|---|
+| T0 | 2 | 2 |
+| T1 | 1 | 2 |
+| T2 | 5 | 16 |
+| Total na superficie | 8 | 20 |
+| path-cites resolvidos | 6 | 12 |
+| Findings BROKEN | 0 | 0 |
+
+**Veredito AC-7: PASSOU.** Os tres alvos exigidos entraram na superficie e a trilha A segue com zero findings.
+
+Licao que fica: a regua nao distingue "caminho deste repo" de "caminho no mundo de outra ferramenta". Ao documentar o ecossistema de outro vendor, nomear em prosa; crase e para caminho que existe aqui.

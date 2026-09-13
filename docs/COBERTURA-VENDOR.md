@@ -16,7 +16,7 @@ A regra que organiza tudo abaixo: **guardrail contornado é pior que guardrail a
 
 ### Hooks de runtime (`.claude/settings.json` + `.claude/hooks/`)
 
-Só valem no Claude Code. Os três guardas (`guarda_bash.py`, `guarda_segredo.py`, `guarda_espelho.py`) leem o payload de `PreToolUse` do Claude Code: `tool_input.command` para Bash, `tool_input.file_path` para Edit/Write/MultiEdit. Codex (`.codex/hooks.json`) e Cursor (`.cursor/hooks.json`) têm eventos e schema próprios.
+Só valem no Claude Code. Os três guardas (`guarda_bash.py`, `guarda_segredo.py`, `guarda_espelho.py`) leem o payload de `PreToolUse` do Claude Code: `tool_input.command` para Bash, `tool_input.file_path` para Edit/Write/MultiEdit. Codex e Cursor têm eventos e schema próprios, em arquivos de hook que vivem na configuração de cada um (no Codex, um hooks.json sob .codex/; no Cursor, sob .cursor/) e que este repositório não traz.
 
 **O que seria preciso:** um adaptador por vendor que traduza o payload nativo para o shape que os guardas já consomem. A lógica de negócio dos três scripts é Python puro e não muda — só a extração do payload é acoplada, e ela cabe em poucas linhas.
 
@@ -26,7 +26,7 @@ Só valem no Claude Code. Os três guardas (`guarda_bash.py`, `guarda_segredo.py
 
 ### Sub-agente e commands (`.claude/agents/`, `.claude/commands/`)
 
-O sub-agente `verificador` e os commands `gates` e `verificar` são formato do Claude Code. O Codex usa TOML em `.codex/agents/`; o Cursor usa `.cursor/commands/*.md`; no Grok Build, skill "user-invocable" já vira comando de barra sozinha.
+O sub-agente `verificador` e os commands `gates` e `verificar` são formato do Claude Code. O Codex define sub-agente em TOML sob .codex/agents/; o Cursor guarda comando em .cursor/commands/; no Grok Build, skill "user-invocable" já vira comando de barra sozinha. Nenhum desses caminhos existe aqui.
 
 **O que seria preciso:** converter os dois commands em skills — o caminho que a própria Anthropic tomou ao fundir commands em skills — e assim eles passam a chegar aos três agentes pelo mesmo espelho das skills. O sub-agente exigiria uma definição por vendor.
 

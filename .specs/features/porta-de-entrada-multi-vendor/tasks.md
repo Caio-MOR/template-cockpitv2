@@ -146,7 +146,7 @@ flowchart TD
     T12[T12 rodar a trilha A e comparar]
 ```
 
-### T12: rodar a trilha A do `harness-eval` e registrar o antes/depois — concluída (execução completa; AC-7 só parcialmente atendido)
+### T12: rodar a trilha A do `harness-eval` e registrar o antes/depois — concluída
 
 Roda `inventory_extract.py` e `track_a_correctness.py` contra o repositório, com saída fora dele, e registra a comparação com o run `2026-09-13-trilhaA`.
 
