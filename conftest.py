@@ -17,11 +17,11 @@ if str(RAIZ) not in sys.path:
 
 # Coleta medida da suíte. Um teste confere este número contra a coleta real: número
 # solto em comentário apodrece em silêncio, número com sensor não.
-COLETA_MEDIDA = 268
+COLETA_MEDIDA = 278
 # Piso: a folga (metade da coleta) absorve remoção legítima pontual sem mascarar o
 # desaparecimento de um arquivo inteiro. Baixar este número é decisão de PR com
 # justificativa, nunca ajuste silencioso para "passar".
-PISO_COLETA = 134
+PISO_COLETA = 139
 
 # Os gates que não podem sumir, e o mínimo de testes de cada. Piso total não protege
 # arquivo pequeno; esta lista protege por nome. Dividir ou renomear um destes exige
@@ -37,6 +37,7 @@ GATES_OBRIGATORIOS = {
     "tests/test_runner_sincronizado.py": 5,
     "tests/test_new_instance.py": 2,
     "tests/test_pre_commit_hook.py": 9,
+    "tests/test_sync_skills.py": 10,
 }
 
 

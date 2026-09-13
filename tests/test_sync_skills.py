@@ -10,8 +10,14 @@ entrega o mesmo contrato que a função testada diretamente.
 
 `test_repo_real_sem_drift` (T2 — SKL-01) confere o repositório real, já migrado:
 fonte em `.agents/skills/` e os dois espelhos idênticos a ela no índice git.
+
+`test_discriminacao_...` (T3 — SKL-04) prova que o gate de drift morde de verdade:
+byte alterado reprova, desfazer volta ao verde. A prova roda sobre uma CÓPIA do
+repositório real em `tmp_path`, nunca sobre o disco de verdade — mesma convenção de
+`tests/test_runner_sincronizado.py::test_sintetico_um_byte_diferente_reprova`.
 """
 import importlib.util
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -205,3 +211,36 @@ def test_repo_real_sem_drift():
     assert fonte, "fonte .agents/skills/ vazia no índice git — migração (T2) não versionou nada"
     assert fonte == claude, f"fonte x .claude/skills diverge: {fonte ^ claude}"
     assert fonte == grok, f"fonte x .grok/skills diverge: {fonte ^ grok}"
+
+
+def test_discriminacao_byte_alterado_no_espelho_reprova_e_desfazer_volta_ao_verde(tmp_path):
+    """SKL-04 — o gate de drift entrado na suíte (`test_repo_real_sem_drift`, em
+    `GATES_OBRIGATORIOS` do `conftest.py`) morde de verdade: uma cópia fiel do
+    repositório real sai limpa; um byte alterado no espelho copiado faz o `--check`
+    reprovar nomeando `divergente`; desfazer a alteração volta ao verde.
+
+    Copia para `tmp_path` em vez de mutar o disco de verdade: mutar o repositório
+    real para provar um gate é o próprio risco que o gate existe para evitar.
+    """
+    root = tmp_path / "copia"
+    shutil.copytree(RAIZ / ".agents" / "skills", root / ".agents" / "skills")
+    shutil.copytree(RAIZ / ".claude" / "skills", root / ".claude" / "skills")
+    shutil.copytree(RAIZ / ".grok" / "skills", root / ".grok" / "skills")
+
+    codigo_limpo, linhas_limpo = ss.sincronizar(root, check=True)
+    assert codigo_limpo == 0, f"cópia fiel do repo real já deveria sair limpa: {linhas_limpo}"
+
+    alvo = root / ".claude" / "skills" / "_exemplo-skill" / "SKILL.md"
+    original = alvo.read_bytes()
+    alvo.write_bytes(original + b" ")  # um byte a mais: nem muda comportamento, só bytes
+
+    codigo_sujo, linhas_sujo = ss.sincronizar(root, check=True)
+    assert codigo_sujo != 0, "byte alterado no espelho copiado não foi detectado"
+    assert any(
+        "divergente" in linha and "_exemplo-skill/SKILL.md" in linha for linha in linhas_sujo
+    ), linhas_sujo
+
+    alvo.write_bytes(original)  # desfazer
+
+    codigo_restaurado, linhas_restaurado = ss.sincronizar(root, check=True)
+    assert codigo_restaurado == 0, f"desfazer a alteração deveria voltar ao verde: {linhas_restaurado}"

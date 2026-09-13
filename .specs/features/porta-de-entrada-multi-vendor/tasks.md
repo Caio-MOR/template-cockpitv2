@@ -31,7 +31,7 @@ Requirements: SKL-01
 Tests: `tests/test_sync_skills.py::test_repo_real_sem_drift` — `--check` sobre o repositório real sai 0 e as três árvores têm o mesmo conjunto de caminhos relativos no índice git.
 Gate: `python tools/sync_skills.py --check`
 
-### T3: gate de drift na suíte
+### T3: gate de drift na suíte — concluída
 
 O `--check` do repositório real vira teste da suíte e o arquivo entra em `GATES_OBRIGATORIOS` do `conftest.py` com a contagem de testes coletados.
 
