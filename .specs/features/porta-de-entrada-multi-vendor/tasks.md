@@ -84,7 +84,7 @@ flowchart TD
     T7[T7 guarda_espelho.py] --> T8[T8 provar que está ligado]
 ```
 
-### T7: hook `guarda_espelho.py`
+### T7: hook `guarda_espelho.py` — concluída
 
 Nega `Edit`, `Write` e `MultiEdit` sob `.claude/skills/` e `.grok/skills/`, devolvendo o caminho equivalente em `.agents/skills/` e o comando de sincronização. Mesmo shape de payload que `guarda_segredo.py` já consome.
 
