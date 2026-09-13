@@ -11,6 +11,7 @@
 !/.gitattributes
 !/CLAUDE.md
 !/AGENTS.md
+!/LICENSE
 !/README.md
 !/SECURITY.md
 !/requirements.txt
