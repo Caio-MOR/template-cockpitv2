@@ -24,6 +24,12 @@ uv venv .venv --python 3.12.13
 uv pip install --require-hashes -r requirements.txt
 ```
 
+Para atualizar dependências, edite `requirements.in` e regenere o lock com
+`uv pip compile --universal --generate-hashes --python-version 3.12 requirements.in -o requirements.txt`
+(o comando fica no cabeçalho do próprio `requirements.txt`). `pip-compile` sem `--allow-unsafe`
+gera um lock que deixa `pip` de fora e quebra o `uv pip install --require-hashes` acima;
+`PY tools/doctor.py` reprova esse lock.
+
 The root `.venv` is the only interpreter for repository commands. In the command list
 below, `PY` and `GITLEAKS` are metavariables, not literal shell commands. On Mac/Linux,
 run `PY=.venv/bin/python` and then `"$PY" tools/gate_veredito.py`. In PowerShell, run

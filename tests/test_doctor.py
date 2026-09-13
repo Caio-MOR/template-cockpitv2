@@ -34,7 +34,7 @@ def test_empty_schema_is_a_valid_cockpit(tmp_path: Path) -> None:
     report = doctor.check(_repo(tmp_path), python_version=(3, 12, 13))
 
     assert report.ok
-    assert report.checked == ("python", "git", "hooks", "security", "environment")
+    assert report.checked == ("python", "git", "hooks", "security", "environment", "dependencies")
 
 
 def test_required_and_optional_fields_use_names_only(tmp_path: Path) -> None:
@@ -157,6 +157,39 @@ def test_env_file_parent_traversal_fails_closed(tmp_path: Path) -> None:
     report = doctor.check(repo, env_file="../outside.env", environ={})
 
     assert "env_file_unsafe" in _codes(report)
+
+# Lock que pip-compile gerou sem `--allow-unsafe`: o bloco final "not pinned" lista
+# `pip`, e `uv pip install --require-hashes -r requirements.txt` (comando do README)
+# morre com "found: pip". Foi o que aconteceu na primeira instância real do template.
+LOCK_SEM_PIP = (
+    "pip-audit==2.10.1 \\\n    --hash=sha256:abc\n    # via -r requirements.in\n\n"
+    "# WARNING: The following packages were not pinned, but pip requires them to be\n"
+    "# satisfied by a package already installed. Consider using the --allow-unsafe flag.\n"
+    "# pip\n"
+)
+LOCK_COMPLETO = "pip-audit==2.10.1 \\\n    --hash=sha256:abc\npip==26.2.1 \\\n    --hash=sha256:def\n"
+
+
+def test_lock_with_unpinned_requirement_is_reported_with_the_regenerate_command(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    (repo / "requirements.txt").write_text(LOCK_SEM_PIP, encoding="utf-8")
+    report = doctor.check(repo, python_version=(3, 12, 13))
+    assert doctor.DoctorIssue("dependencies", "lock_unpinned_requirement", "pip") in report.issues
+    assert "uv pip compile" in report.render()
+    assert "--generate-hashes" in report.render()
+
+
+def test_lock_that_pins_everything_passes_and_missing_lock_is_not_the_doctors_job(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    assert "lock_unpinned_requirement" not in _codes(doctor.check(repo, python_version=(3, 12, 13)))
+    (repo / "requirements.txt").write_text(LOCK_COMPLETO, encoding="utf-8")
+    assert doctor.check(repo, python_version=(3, 12, 13)).ok
+
+
+def test_the_repositorys_own_lock_has_no_unpinned_requirement() -> None:
+    raiz = Path(__file__).resolve().parents[1]
+    assert doctor.unpinned_lock_requirements((raiz / "requirements.txt").read_text(encoding="utf-8")) == []
+
 
 # O caso de symlink (`.env-link` -> `.env-real`) vive em `tests/test_symlink_privilegio.py`:
 # criar symlink exige privilégio no Windows e um teste pulado num arquivo de gate
