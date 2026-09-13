@@ -93,7 +93,7 @@ Requirements: SKL-05
 Tests: `tests/test_guarda_espelho.py` — Write em `.claude/skills/x/SKILL.md` negado com a mensagem citando `.agents/skills/x/SKILL.md`; idem `.grok/skills/`; escrita em `.agents/skills/` permitida; escrita fora das três árvores permitida; payload malformado não derruba o hook.
 Gate: `python -m pytest tests/test_guarda_espelho.py -q`
 
-### T8: provar que o guarda está ligado
+### T8: provar que o guarda está ligado — concluída
 
 O script entra na allowlist de `.claude/hooks/run_hook.sh` e no `PreToolUse` de `.claude/settings.json`. Guarda novo nasce sem prova de ser chamado; esta task é essa prova.
 

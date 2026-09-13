@@ -613,3 +613,55 @@ def test_settings_registra_posttooluse_com_matcher_edit_write_multiedit():
         for h in bloco.get("hooks", []):
             assert h.get("type") == "command", h
             assert "run_hook.sh" in h.get("command", ""), h
+
+
+# ---------------------------------------------------------------------------
+# T8 — prova de que guarda_espelho.py (T7) está LIGADO, não só escrito.
+#
+# Guarda novo nasce sem prova de ser chamado: um teste que só exercitasse a função
+# Python do hook (tests/test_guarda_espelho.py) passaria feliz mesmo com o hook
+# morto — nem na allowlist do run_hook.sh, nem no PreToolUse do settings.json. Os
+# dois testes abaixo leem os dois arquivos-fonte da fiação e afirmam a presença;
+# a discriminação (removê-lo da allowlist e ver o segundo teste reprovar, depois
+# restaurar) foi provada manualmente ao implementar esta task — ver relatório da
+# sessão.
+
+
+def test_guarda_espelho_esta_na_allowlist_do_run_hook():
+    """`run_hook.sh` só executa scripts citados no `case` de allowlist (linha 11).
+    Sem o nome ali, `guarda_espelho.py` nunca roda — mesmo existindo e estando
+    registrado no `PreToolUse` do `settings.json`."""
+    texto = RUN_HOOK.read_text(encoding="utf-8")
+    linha_allowlist = next(
+        (linha for linha in texto.splitlines() if linha.strip().startswith("guarda_bash.py")),
+        None,
+    )
+    assert linha_allowlist is not None, "linha de allowlist do run_hook.sh não encontrada"
+    assert "guarda_espelho.py" in linha_allowlist, (
+        f"guarda_espelho.py ausente da allowlist de run_hook.sh: {linha_allowlist!r}"
+    )
+
+
+def test_guarda_espelho_esta_registrado_no_pretooluse_do_settings():
+    """O comando de `guarda_espelho.py` aparece num bloco `PreToolUse` cujo
+    `matcher` cobre `Edit`/`Write`/`MultiEdit` — sem isso, o Claude Code nunca
+    invoca `run_hook.sh guarda_espelho.py` em escrita nenhuma."""
+    hooks = _settings().get("hooks", {}).get("PreToolUse", [])
+    achou = False
+    for bloco in hooks:
+        matcher = bloco.get("matcher") or ""
+        if "Edit" in matcher and "Write" in matcher:
+            for h in bloco.get("hooks", []):
+                if "guarda_espelho.py" in h.get("command", ""):
+                    achou = True
+    assert achou, "guarda_espelho.py não está registrado no PreToolUse Edit|Write|MultiEdit do settings.json"
+
+
+def test_run_hook_executa_guarda_espelho_de_verdade():
+    """Prova funcional, além da leitura estática: invocar `run_hook.sh
+    guarda_espelho.py` com um payload benigno roda o hook (exit 0) em vez de
+    recusar por "script de hook não permitido" (exit 2, que seria o sintoma de
+    estar fora da allowlist)."""
+    r = _rodar_hook("guarda_espelho.py", {"tool_input": {"file_path": "README.md", "content": "x"}})
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "script de hook não permitido" not in r.stderr
