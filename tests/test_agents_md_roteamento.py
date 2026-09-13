@@ -43,6 +43,7 @@ CAMINHOS_OBRIGATORIOS = (
     "docs/OPERATIONS.md",
     "docs/THREAT_MODEL.md",
     "docs/padrao-ouro/PADRAO.md",
+    "docs/COBERTURA-VENDOR.md",
     ".claude/agents/verificador.md",
     ".claude/commands/gates.md",
     ".claude/commands/verificar.md",

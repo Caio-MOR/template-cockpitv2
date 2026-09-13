@@ -129,7 +129,7 @@ Requirements: ENT-02, ENX-02, ENX-03
 Tests: teste afirmando que a primeira linha do `CLAUDE.md` é `@AGENTS.md` e que cada frase KEEP das duas rules segue presente literalmente; medição de linhas do conjunto sempre-carregado menor que a da `main`.
 Gate: `python tools/gate_veredito.py`
 
-### T11: documentar o que cada vendor não recebe
+### T11: documentar o que cada vendor não recebe — concluída
 
 Documento em `docs/` listando, por agente, qual peça do harness não é fornecida, o motivo e o que seria preciso. Citado por caminho no `AGENTS.md`.
 

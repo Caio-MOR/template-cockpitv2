@@ -16,7 +16,7 @@ O que cada agente carrega sozinho. O que ele não carrega, você alcança pelo c
 | Sub-agente `.claude/agents/verificador.md` e commands `.claude/commands/` | sim | não carrega | não carrega | não carrega |
 | Hooks de `.claude/settings.json` (enforcement em runtime) | sim | não carrega | não carrega | não carrega |
 
-Os gates de `.githooks/` e de `.github/workflows/` valem para todo mundo: é onde a verificação não depende de vendor. Quem não carrega hook não tem guarda em runtime — a disciplina escrita aqui é a única que lhe resta.
+Os gates de `.githooks/` e de `.github/workflows/` valem para todo mundo: é onde a verificação não depende de vendor. Quem não carrega hook não tem guarda em runtime — a disciplina escrita aqui é a única que lhe resta. O que cada agente não recebe, por que, e o que seria preciso: `docs/COBERTURA-VENDOR.md`.
 
 ## Arquitetura WAT (Workflows, Agents, Tools)
 
