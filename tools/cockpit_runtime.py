@@ -13,6 +13,7 @@ import os
 import random
 import re
 import socket
+import sys
 import tempfile
 import time
 import uuid
@@ -50,6 +51,13 @@ def _windows_process_state(pid: int) -> bool | None:
     avoids broadcasting a console signal. Unknown and access-denied states remain
     conservative so a second run cannot steal a possibly live lock.
     """
+    if sys.platform != "win32":
+        # Guarda de plataforma, nao defesa em profundidade: o unico chamador ja
+        # testa `os.name == "nt"`. Existe para o type-check rodar no Linux do CI,
+        # onde `ctypes.WinDLL` nao existe — sem ela, o mypy reprova para sempre
+        # no runner e passa para sempre no Windows.
+        return None
+
     import ctypes
     from ctypes import wintypes
 
