@@ -120,7 +120,7 @@ Requirements: ENT-01, ENT-03, ROT-01, ENX-01
 Tests: teste afirmando que todo caminho citado entre crases no `AGENTS.md` existe no índice git e que os caminhos obrigatórios estão presentes (`SECURITY.md`, as 6 rules, os 4 docs).
 Gate: `python tools/lint_routers.py`
 
-### T10: cortes nas rules e no `CLAUDE.md`
+### T10: cortes nas rules e no `CLAUDE.md` — concluída
 
 Aplica o plano KEEP/CUT da trilha C nas duas rules MIXED e remove o preâmbulo duplicado do `CLAUDE.md`, preservando a primeira linha `@AGENTS.md`.
 
