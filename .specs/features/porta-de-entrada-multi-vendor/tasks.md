@@ -67,7 +67,7 @@ Requirements: GAT-01
 Tests: teste que reprova com a fonte vazia ou ausente (apontando para um `tmp_path` vazio) e passa com a fonte real; os quatro testes existentes continuam verdes.
 Gate: `python -m pytest tests/test_evals_estrutura.py -q`
 
-### T6: rules e routers de apoio aprendem o caminho
+### T6: rules e routers de apoio aprendem o caminho — concluída
 
 `paths:` de `.claude/rules/estrutura-e-logging.md` inclui `.agents/skills/**`; `.claude/rules/conduta-colaborador.md` aponta o modelo para `.agents/skills/_exemplo-skill/`; `tools/CLAUDE.md` e `README.md` passam `--skills-dir .agents/skills`.
 

@@ -28,7 +28,7 @@ Só o que o `AGENTS.md` não cobre: um utilitário ou protótipo pequeno nasce e
 `apps/<nome>/` neste repositório; quando ganha usuários, publicação própria ou
 ciclo de release, vira repositório próprio (a partir do template do tipo
 correspondente, se existir) — e aqui fica só a linha do router apontando para
-ele. Skill nova segue o modelo em `.claude/skills/_exemplo-skill/`.
+ele. Skill nova segue o modelo em `.agents/skills/_exemplo-skill/`.
 
 ## Memória do agente
 
