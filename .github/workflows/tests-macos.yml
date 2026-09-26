@@ -26,7 +26,7 @@ jobs:
       # O actions/setup-python não oferece todos os patches no macOS arm64.
       # O uv baixa o CPython exato do .python-version para a .venv canônica.
       - name: uv (runtime gerenciado no macOS)
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
 
       - name: Python (patch exato gerenciado no macOS)
         run: |
@@ -51,7 +51,7 @@ jobs:
           persist-credentials: false
 
       - name: uv (runtime gerenciado no macOS)
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
 
       - name: Python (patch exato gerenciado no macOS)
         run: |
