@@ -4,7 +4,7 @@
 # fora do lock e `uv pip install --require-hashes` falha com "found: pip";
 # `tools/doctor.py` acusa esse lock.
 bandit
-mypy>=2,<3
+mypy>=2.4.0,<3
 pip-audit
 pytest>=9,<10
 pyyaml>=6,<7
